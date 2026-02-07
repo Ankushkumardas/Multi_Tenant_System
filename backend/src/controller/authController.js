@@ -43,26 +43,25 @@ export const registerOwner = async (req, res) => {
 
         let selectedPlan = await Plan.findOne({ name: requestedPlanName });
 
-
         if (!selectedPlan) {
             const plansToSeed = [
                 {
                     name: "FREE",
                     price: 0,
                     limits: { maxUsers: 10, maxProjects: 2 },
-                    features: { chat: true, analytics: false, notifications: true, kanban: true }
+                    features: { chat: true, analytics: false, notifications: true, kanban: true, groupChat: false, fileSharing: false, reminder: false, auditlogs: true, emailNotification: true, integrations: false }
                 },
                 {
                     name: "PRO",
                     price: 29,
                     limits: { maxUsers: 50, maxProjects: 20 },
-                    features: { chat: true, analytics: true, notifications: true, kanban: true }
+                    features: { chat: true, analytics: true, notifications: true, kanban: true, groupChat: true, fileSharing: true, reminder: true, auditlogs: true, emailNotification: true, integrations: true }
                 },
                 {
                     name: "ENTERPRISE",
                     price: 99,
                     limits: { maxUsers: 1000, maxProjects: 100 },
-                    features: { chat: true, analytics: true, notifications: true, kanban: true }
+                    features: { chat: true, analytics: true, notifications: true, kanban: true, groupChat: true, fileSharing: true, reminder: true, auditlogs: true, emailNotification: true, integrations: true }
                 }
             ];
 
