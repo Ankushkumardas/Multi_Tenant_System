@@ -7,7 +7,7 @@ const PlanSchema = new mongoose.Schema({
         unique: true,
     },
 
-    price: Number,
+    price: { type: Number, default: 0 },
 
     limits: {
         maxUsers: Number,

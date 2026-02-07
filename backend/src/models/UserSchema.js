@@ -10,11 +10,10 @@ const UserSchema = new mongoose.Schema({
     name: { type: String, required: true },
     email: { type: String, required: true },
     password: { type: String, required: true },
-    // passwordHash: { type: String, required: true },
 
     role: {
         type: String,
-        enum: ["SUPER_ADMIN", "ADMIN", "MANAGER", "USER", "VIEWER"],
+        enum: ["SUPER_ADMIN", "ADMIN", "MANAGER", "USER", "VIEWER","OWNER"],
         default: "USER",
     },
 

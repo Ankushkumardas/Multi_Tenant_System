@@ -18,3 +18,7 @@ export const generateTokens = (user) => {
 export const hashpassword = (password) => {
     return bcrypt.hashSync(password, 10);
 };
+
+export const comparePassword = (password, hash) => {
+    return bcrypt.compareSync(password, hash);
+};

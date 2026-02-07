@@ -4,7 +4,7 @@ import User from "../models/UserSchema.js";
 //authentication middlware for use which will pass the usedId ,tenantId,and role of teh user and under which tenant the user is
 export const authenticate = async (req, res, next) => {
     try {
-        const token = req.cookies.accessToken;
+        const token = req?.headers?.authorization?.split(" ")[1];
         if (!token) return res.status(401).json({ message: "Not authenticated" });
 
         const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);

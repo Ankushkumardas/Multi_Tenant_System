@@ -1,51 +1,376 @@
 import User from "../models/UserSchema.js";
-import { hashpassword } from "../service/tokenService.js";
+import { generateTokens, hashpassword } from "../service/tokenService.js";
 import Tenant from "../models/TenantSchema.js";
 import Plan from "../models/PlanSchema.js";
 import TenantSubscription from "../models/TenantSubscriptionSchema.js";
+import { slugify } from "../service/slugify.js";
+import crypto from "crypto";
+import { sendMail } from "../service/mail.js";
+import Email from "../models/EmailSchema.js";
+import Invite from "../models/InviteSchema.js";
+import { verifyRefreshToken } from "../utils/jwt.js";
+
 
 export const registerOwner = async (req, res) => {
     try {
-        const { name, email, password, companyName } = req.body;
+        const { name, email, password, companyName, plan } = req.body;
+
         if (!name || !email || !password || !companyName) {
             return res.status(400).json({ message: "All fields are required" })
         }
+
         const user = await User.findOne({ email })
         if (user) {
             return res.status(400).json({ message: "User already exists" })
         }
+
         const hashedPassword = await hashpassword(password)
-        //1st create teh owner user of teh company
+
         const newUser = new User({ name, email, password: hashedPassword })
-        await newUser.save()
-//2nd create teh comapny of teh owner
-        const tenant = new Tenant({ name: companyName, ownerId: newUser._id });
-        await tenant.save();
-//3rd create teh free plan subscription for teh company
-        const freePlan = await Plan.findOne({ name: "FREE" });
-        if (!freePlan) throw new Error("Free plan not configured");
+
+        const requestedPlanName = plan ? plan.toUpperCase() : "FREE";
+        if (!["FREE", "PRO", "ENTERPRISE"].includes(requestedPlanName)) {
+            return res.status(400).json({ message: "Invalid plan selected. Choose FREE, PRO, or ENTERPRISE." });
+        }
+
+        const tenant = await Tenant.create({
+            name: companyName,
+            slug: slugify(companyName),
+            subscriptionPlan: requestedPlanName,
+            subscriptionStatus: "ACTIVE",
+        });
+
+
+        let selectedPlan = await Plan.findOne({ name: requestedPlanName });
+
+
+        if (!selectedPlan) {
+            const plansToSeed = [
+                {
+                    name: "FREE",
+                    price: 0,
+                    limits: { maxUsers: 10, maxProjects: 2 },
+                    features: { chat: true, analytics: false, notifications: true, kanban: true }
+                },
+                {
+                    name: "PRO",
+                    price: 29,
+                    limits: { maxUsers: 50, maxProjects: 20 },
+                    features: { chat: true, analytics: true, notifications: true, kanban: true }
+                },
+                {
+                    name: "ENTERPRISE",
+                    price: 99,
+                    limits: { maxUsers: 1000, maxProjects: 100 },
+                    features: { chat: true, analytics: true, notifications: true, kanban: true }
+                }
+            ];
+
+            for (const p of plansToSeed) {
+                await Plan.findOneAndUpdate({ name: p.name }, p, { upsert: true, new: true });
+            }
+
+            selectedPlan = await Plan.findOne({ name: requestedPlanName });
+        }
+
+        if (!selectedPlan) throw new Error("Failed to initialize plans.");
 
         const subscription = new TenantSubscription({
             tenantId: tenant._id,
-            planId: freePlan._id,
+            planId: selectedPlan._id,
             status: "ACTIVE",
             billingCycle: "MONTHLY",
-            currentPeriodStart: new Date(),
-            currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+            startDate: new Date(),
+            endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), //30 days default
+            history: [
+                {
+                    planId: selectedPlan._id,
+                    status: "ACTIVE",
+                    billingCycle: "MONTHLY",
+                    startDate: new Date(),
+                    endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+                    price: selectedPlan.price,
+                }
+            ]
         });
-        await subscription.save();
-//4th update teh owner user with teh tenantId and role
+
         newUser.tenantId = tenant._id;
         newUser.role = "OWNER";
-        await newUser.save();
+
+        const verificationToken = crypto.randomBytes(32).toString("hex");
+        const emailVerification = new Email({
+            userId: newUser._id,
+            token: verificationToken,
+            expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
+        });
+
+        await Promise.all([
+            emailVerification.save(),
+            sendMail({
+                to: email,
+                subject: "Verify your email",
+                text: `Click on the link to verify your email: http://localhost:3000/api/v1/auth/verify-email/${verificationToken}`,
+                html: `<a href="http://localhost:3000/api/v1/auth/verify-email/${verificationToken}">Verify Email</a>`,
+            }),
+            newUser.save(),
+            subscription.save()
+        ]);
 
         res.status(201).json({
             message: "Tenant and owner created successfully",
             user: newUser,
-            tenant,
+            tenant: tenant,
+            subscription: subscription,
+            plan: selectedPlan
         });
 
     } catch (error) {
+        console.error("Register Error:", error);
         res.status(500).json({ message: error.message })
+    }
+}
+
+export const verifyOwnerEmail = async (req, res) => {
+    try {
+        const { token } = req.params;
+
+        const emailVerification = await Email.findOne({ token });
+
+        if (!emailVerification) {
+            return res.status(400).json({ message: "Invalid verification token" });
+        }
+
+        if (emailVerification.expiresAt < new Date()) {
+            await Email.deleteOne({ _id: emailVerification._id });
+            return res.status(400).json({ message: "Verification token has expired request for new token" });
+        }
+
+        const user = await User.findById(emailVerification.userId);
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        user.isEmailVerified = true;
+
+        await Promise.all([
+            user.save(),
+            Email.deleteOne({ _id: emailVerification._id })
+        ]);
+
+        res.status(200).json({ message: "Email verified successfully" });
+    } catch (error) {
+        console.error("Verify Email Error:", error);
+        res.status(500).json({ message: error.message });
+    }
+}
+
+export const resendVerificationEmail = async (req, res) => {
+    try {
+        const { email } = req.body;
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+        if (user.isEmailVerified) {
+            return res.status(400).json({ message: "Email already verified" });
+        }
+        const verificationToken = crypto.randomBytes(32).toString("hex");
+        const emailVerification = new Email({
+            userId: user._id,
+            token: verificationToken,
+            expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
+        });
+        await Promise.all([
+            emailVerification.save(),
+            sendMail({
+                to: email,
+                subject: "Verify your email",
+                text: `Click on the link to verify your email: http://localhost:3000/api/v1/auth/verify-email/${verificationToken}`,
+                html: `<a href="http://localhost:3000/api/v1/auth/verify-email/${verificationToken}">Verify Email</a>`,
+            })
+        ]);
+        res.status(200).json({ message: "Verification email sent successfully" });
+    } catch (error) {
+        console.error("Resend Verification Email Error:", error);
+        res.status(500).json({ message: error.message });
+    }
+}
+
+export const sendInvite = async (req, res) => {
+    const { email, role } = req.body;
+    const { tenantId, userId } = req.user;
+
+    const subscription = await TenantSubscription.findOne({
+        tenantId,
+        status: "ACTIVE",
+    }).populate("planId");
+
+    if (!subscription) {
+        return res.status(403).json({ message: "No active subscription" });
+    }
+    const plan = subscription.planId;
+
+    const userCount = await User.countDocuments({ tenantId, status: { $ne: "SUSPENDED" } });
+
+    //plan limti check
+    if (plan?.limits?.maxUsers && userCount >= plan?.limits?.maxUsers) {
+        return res.status(403).json({ message: "Max users limit reached" });
+    }
+    // 3. Existing user check
+    const existingUser = await User.findOne({ tenantId, email });
+    if (existingUser) {
+        return res.status(400).json({ message: "User already exists in the tenant" });
+    }
+
+    // 4. Create INVITED user
+    const invitedUser = await User.create({
+        tenantId,
+        email,
+        role,
+        status: "INVITED",
+        isEmailVerified: false,
+    });
+
+    // 5. Create invite token
+    const token = crypto.randomBytes(32).toString("hex");
+
+    await Invite.create({
+        tenantId,
+        userId: invitedUser._id,
+        token,
+        invitedBy: userId,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    });
+
+    const tenant = await Tenant.findById(tenantId);
+    // 6. Send email
+    await sendMail({
+        to: email,
+        subject: "You have been invited to join our tenant",
+        text: `Click on the link to join our tenant: http://localhost:3000/api/v1/auth/invite-mail/${token}`,
+        html: `<a href="http://localhost:3000/api/v1/auth/invite-mail/${token}">Join Tenant:${tenant.name}</a>`,
+    });
+
+    return res.json({ message: "Invite sent successfully" });
+};
+
+export const acceptInvite = async (req, res) => {
+    const { token, name, password } = req.body;
+
+    const invite = await Invite.findOne({
+        token,
+        isUsed: false,
+    });
+
+    if (!invite) {
+        return res.status(400).json({
+            message: "Invalid or already used invite",
+        });
+    }
+
+    if (invite.expiresAt < Date.now()) {
+        return res.status(400).json({
+            message: "Invite expired",
+        });
+    }
+
+    // 3️⃣ Tenant validation
+    const tenant = await Tenant.findById(invite.tenantId);
+    if (!tenant || tenant.isSuspended) {
+        return res.status(403).json({
+            message: "Tenant unavailable",
+        });
+    }
+
+    // 4️⃣ Fetch invited user
+    const user = await User.findById(invite.userId);
+
+    if (!user || user.status !== "INVITED") {
+        return res.status(400).json({
+            message: "Invite already processed",
+        });
+    }
+
+    // 5️⃣ Re-check plan limits (CRITICAL)
+    const subscription = await TenantSubscription
+        .findOne({ tenantId: tenant._id, status: "ACTIVE" })
+        .populate("planId");
+
+    if (!subscription) {
+        return res.status(403).json({
+            message: "No active subscription",
+        });
+    }
+
+    const plan = subscription.planId;
+
+    const activeUserCount = await User.countDocuments({
+        tenantId: tenant._id,
+        status: { $ne: "SUSPENDED" },
+    });
+
+    if (
+        plan.limits?.maxUsers &&
+        activeUserCount > plan.limits.maxUsers
+    ) {
+        return res.status(403).json({
+            message: "User limit exceeded. Contact admin.",
+        });
+    }
+
+    user.name = name;
+    user.password = hashpassword(password);
+    user.status = "ACTIVE";
+    user.isEmailVerified = true;
+
+    await user.save();
+
+    invite.isUsed = true;
+    await invite.save();
+
+    return res.status(200).json({
+        message: "Invitation accepted successfully",
+    });
+};
+
+export const login = async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(400).json({ message: "User not found" });
+        }
+        const isPasswordValid = await comparePassword(password, user.password);
+        if (!isPasswordValid) {
+            return res.status(400).json({ message: "Invalid password" });
+        }
+        const { accessToken, refreshToken } = generateTokens(user);
+
+        res.cookie("refreshToken", refreshToken, refreshTokenOptions);
+
+        return res.status(200).json({ message: "Login successful", user, accessToken, refreshToken });
+    } catch (error) {
+        console.error("Login Error:", error);
+        return res.status(500).json({ message: error.message });
+    }
+}
+
+export const refreshToken = async (req, res) => {
+    try {
+        const { refreshToken: incomingRefreshToken } = req.cookies;
+        if (!incomingRefreshToken) {
+            return res.status(401).json({ message: "Refresh token not found" });
+        }
+        const decoded = verifyRefreshToken(incomingRefreshToken);
+        const user = await User.findById(decoded.userId);
+        if (!user) {
+            return res.status(401).json({ message: "User not found" });
+        }
+        const { accessToken, refreshToken } = generateTokens(user);
+        res.cookie("refreshToken", refreshToken, refreshTokenOptions);
+        return res.status(200).json({ message: "Refresh token successful", accessToken, refreshToken });
+    } catch (error) {
+        console.error("Refresh Token Error:", error);
+        return res.status(500).json({ message: error.message });
     }
 }

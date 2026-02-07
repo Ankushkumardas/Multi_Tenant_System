@@ -63,3 +63,9 @@ POST /api/auth/refresh
 
 const freePlan = await Plan.findOne({ name: "FREE" });
 if (!freePlan) throw new Error("Free plan not configured");
+
+
+
+
+<!-- for invite member -->
+Owner sends invite → User clicks link →Validate token->Register/Login →Verify email → Join tenant → Login

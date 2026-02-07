@@ -36,7 +36,7 @@ io.on("connection", (socket) => {
 app.get("/", (req, res) => {
     res.send({ message: "Hello World!", status: "OK" });
 })
-app.use("/api/v1", authRoutes)
+app.use("/api/v1/auth", authRoutes)
 
 server.listen(process.env.PORT, () => {
     console.log(`Server is running on port ${process.env.PORT}`);
