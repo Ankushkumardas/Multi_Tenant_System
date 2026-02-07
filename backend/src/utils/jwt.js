@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import { accessTokenOptions, refreshTokenOptions } from "../config/jwtOptions";
+import { accessTokenOptions, refreshTokenOptions } from "../utils/cookie.js";
 
 export const signAccessToken = (payload) => {
   return jwt.sign(payload, process.env.JWT_ACCESS_SECRET, accessTokenOptions);

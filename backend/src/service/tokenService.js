@@ -1,5 +1,5 @@
-import { signAccessToken, signRefreshToken } from "../utils/jwt";
-import bcrypt from "bcrypt";
+import { signAccessToken, signRefreshToken } from "../utils/jwt.js";
+import bcrypt from "bcryptjs";
 
 //funciton to create access and refresh token while login 
 export const generateTokens = (user) => {

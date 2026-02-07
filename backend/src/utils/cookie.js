@@ -1,11 +1,11 @@
-export const accessCookieOptions = {
+export const accessTokenOptions = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
   sameSite: "strict",
   maxAge: 15 * 60 * 1000,
 };
 
-export const refreshCookieOptions = {
+export const refreshTokenOptions = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
   sameSite: "strict",
