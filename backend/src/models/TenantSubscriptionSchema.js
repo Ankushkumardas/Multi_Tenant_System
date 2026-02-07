@@ -19,6 +19,12 @@ const TenantSubscriptionSchema = new mongoose.Schema({
       default: "ACTIVE",
     },
 
+    billingCycle: {
+      type: String,
+      enum: ["MONTHLY", "YEARLY"],
+      default: "MONTHLY",
+    },
+
     startDate: Date,
     endDate: Date,
 

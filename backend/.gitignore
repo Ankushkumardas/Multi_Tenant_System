@@ -5,3 +5,10 @@ node_modules
 .env.test
 .env.production
 .env.development
+
+schema_diagram.png
+work_flow.png
+work_flow.
+schema_diagram.md
+Work_flow.md
+Schema_diagram.md

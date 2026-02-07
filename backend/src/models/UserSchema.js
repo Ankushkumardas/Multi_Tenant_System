@@ -9,8 +9,8 @@ const UserSchema = new mongoose.Schema({
 
     name: { type: String, required: true },
     email: { type: String, required: true },
-
-    passwordHash: { type: String, required: true },
+    password: { type: String, required: true },
+    // passwordHash: { type: String, required: true },
 
     role: {
         type: String,
@@ -19,7 +19,9 @@ const UserSchema = new mongoose.Schema({
     },
 
     isEmailVerified: { type: Boolean, default: false },
-
+    emailVerificationToken: String,
+    emailVerificationExpires: Date,
+    
     status: {
         type: String,
         enum: ["ACTIVE", "INVITED", "SUSPENDED"],

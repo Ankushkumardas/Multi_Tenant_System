@@ -7,6 +7,7 @@ const MessageSchema = new mongoose.Schema({
       required: true,
     },
 
+    //chatroom works for both receieverid and chatroom id
     chatRoomId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "ChatRoom",
