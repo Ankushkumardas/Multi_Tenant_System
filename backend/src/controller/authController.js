@@ -404,7 +404,7 @@ export const login = async (req, res) => {
     }
     const sessionId = generateSessionId(req);
     const { accessToken, refreshToken } = generateTokens(user);
-    //usingredis for cache on teh bais of Owner and other role of user
+    //using redis to make session tracking for refresh token on teh basis of user id and session id
     await redisClient.set(
       `refreshToken:user:${user._id}:${sessionId}`,
       refreshToken,
@@ -705,6 +705,29 @@ export const forceLogoutuser = async (req, res) => {
     await User.findByIdAndUpdate(userId, { refreshToken: null });
     res.clearCookie("refreshToken");
     return res.status(200).json({ message: "Logout successful" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getActiveSessions = async (req, res) => {
+  try {
+    const { userId } = req.user;
+    const sessions = await redisClient.smembers(`sessions:user:${userId}`);
+    let data = [];
+    for (const session of sessions) {
+      const token = await redisClient.get(
+        `refreshToken:user:${userId}:${session}`,
+      );
+      if (token) {
+        data.push({ sessionId: session, active: true });
+      }
+    }
+    return res.status(200).json({
+      message: "Active sessions fetched successfully for this user",
+      sessions: data,
+      totalSessions: data.length,
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
