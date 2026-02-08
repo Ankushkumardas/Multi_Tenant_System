@@ -402,16 +402,21 @@ export const login = async (req, res) => {
     if (!isPasswordValid) {
       return res.status(400).json({ message: "Invalid password" });
     }
+    const sessionId = generateSessionId(req);
     const { accessToken, refreshToken } = generateTokens(user);
     //usingredis for cache on teh bais of Owner and other role of user
     await redisClient.set(
-      `refreshToken:${user._id}`,
+      `refreshToken:user:${user._id}:${sessionId}`,
       refreshToken,
       "EX",
       60 * 60 * 24 * 7,
     ); //7days
-    //db caheck of save for fallback condition
+
+    //  Track sessions per user
+    await redisClient.sadd(`sessions:user:${user._id}`, sessionId);
+    //  DB fallback (last session only)
     user.refreshToken = refreshToken;
+    user.userAgent = req.headers["user-agent"];
     user.lastLoginAt = Date.now();
     await user.save();
     res.cookie("refreshToken", refreshToken, refreshTokenOptions);
@@ -425,41 +430,6 @@ export const login = async (req, res) => {
   }
 };
 
-// export const refreshToken = async (req, res) => {
-//   try {
-//     const { refreshToken: incomingRefreshToken } = req.cookies;
-//     if (!incomingRefreshToken) {
-//       return res.status(401).json({ message: "Refresh token not found" });
-//     }
-//     const decoded = verifyRefreshToken(incomingRefreshToken);
-//     const user = await User.findById(decoded.userId);
-//     if (!user) {
-//       return res.status(401).json({ message: "User not found" });
-//     }
-//     const { accessToken, refreshToken } = generateTokens(user);
-//     //usingredis for cache on teh bais of Owner and other role of user
-//     await redisClient.set(
-//       `refreshToken:${user._id}`,
-//       refreshToken,
-//       "EX",
-//       60 * 60 * 24 * 7,
-//     ); //7days
-//     //db caheck of save for fallback condition
-//     user.refreshToken = refreshToken;
-//     user.lastLoginAt = Date.now();
-//     await user.save();
-//     res.cookie("refreshToken", refreshToken, refreshTokenOptions);
-//     return res.status(200).json({
-//       message: " token refreshed successfully",
-//       accessToken,
-//       refreshToken,
-//     });
-//   } catch (error) {
-//     console.error("Refresh Token Error:", error);
-//     return res.status(500).json({ message: error.message });
-//   }
-// };
-
 export const refreshToken = async (req, res) => {
   try {
     const incomingRefreshToken = req.cookies.refreshToken;
@@ -467,19 +437,15 @@ export const refreshToken = async (req, res) => {
     if (!incomingRefreshToken) {
       return res.status(401).json({ message: "Refresh token missing" });
     }
-
     // 1️⃣ Verify JWT signature
     const decoded = verifyRefreshToken(incomingRefreshToken);
     const userId = decoded.userId;
-
+    const sessionId = generateSessionId(req);
     // 2️⃣ Redis FIRST
-    const redisToken = await redisClient.get(`refresh:user:${userId}`);
-
-    let isValid = false;
-
-    if (redisToken && redisToken === incomingRefreshToken) {
-      isValid = true;
-    } else {
+    const redisToken = await redisClient.get(
+      `refreshToken:user:${userId}:${sessionId}`,
+    );
+    if (!redisToken) {
       // 3️⃣ DB FALLBACK
       const user = await User.findById(userId);
       if (!user || user.refreshToken !== incomingRefreshToken) {
@@ -488,26 +454,19 @@ export const refreshToken = async (req, res) => {
 
       // Restore Redis if DB matches
       await redisClient.set(
-        `refresh:user:${userId}`,
+        `refreshToken:user:${userId}:${sessionId}`,
         incomingRefreshToken,
         "EX",
         7 * 24 * 60 * 60,
       );
-
-      isValid = true;
     }
-
-    if (!isValid) {
-      return res.status(401).json({ message: "Session expired" });
-    }
-
     // 4️⃣ Rotate tokens
     const user = await User.findById(userId);
     const { accessToken, refreshToken: newRefreshToken } = generateTokens(user);
 
     // 5️⃣ Update Redis
     await redisClient.set(
-      `refresh:user:${userId}`,
+      `refreshToken:user:${userId}:${sessionId}`,
       newRefreshToken,
       "EX",
       7 * 24 * 60 * 60,
@@ -533,11 +492,13 @@ export const refreshToken = async (req, res) => {
 export const logout = async (req, res) => {
   try {
     const userId = req.user.userId;
+    const sessionId = generateSessionId(req);
     const user = await User.findById(userId);
     if (!user) {
       return res.status(401).json({ message: "User not found" });
     }
-    await redisClient.del(`refreshToken:${userId}`);
+    await redisClient.del(`refreshToken:user:${userId}:${sessionId}`);
+    await redisClient.srem(`sessions:user:${userId}`, sessionId);
     await User.findByIdAndUpdate(userId, { refreshToken: null });
     res.clearCookie("refreshToken");
     return res.status(200).json({ message: "Logout successful" });
@@ -721,6 +682,29 @@ export const getProfile = async (req, res) => {
     return res
       .status(200)
       .json({ message: "Profile fetched successfully", user: user });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const forceLogoutuser = async (req, res) => {
+  try {
+    const { userId } = req.params; // Changed from body to params to match route
+    const { tenantId } = req.user;
+    const user = await User.findOne({ _id: userId, tenantId });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    //first will get all teh active sessiosn of that partivcular user whch we where been tracking whle login
+    const sessions = await redisClient.smembers(`sessions:user:${userId}`);
+    for (const sessionId of sessions) {
+      await redisClient.del(`refreshToken:user:${userId}:${sessionId}`);
+    }
+    await redisClient.del(`sessions:user:${userId}`);
+    //fallback with DB
+    await User.findByIdAndUpdate(userId, { refreshToken: null });
+    res.clearCookie("refreshToken");
+    return res.status(200).json({ message: "Logout successful" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

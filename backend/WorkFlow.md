@@ -69,3 +69,40 @@ if (!freePlan) throw new Error("Free plan not configured");
 
 <!-- for invite member -->
 Owner sends invite → User clicks link →Validate token->Register/Login →Verify email → Join tenant → Login
+
+
+for monitering in server we will user redis-cli moniter package and use it to debug redis
+
+and for seession management we will use redis and also user-agent and ip address to prevent session hijacking---> for session maanging we are using a middleware fucntion session.js and using it --->What is this function trying to do?
+
+It is trying to:
+
+Generate a session identifier based on the
+user's device (browser) and IP address.
+
+So the idea is:
+
+Same device + same IP → same sessionId
+
+Different device/IP → different sessionId
+What Redis is Doing Internally
+
+After 3 logins:
+
+Redis memory:
+
+refresh:user:123:a1 → token
+refresh:user:123:b2 → token
+refresh:user:123:c3 → token
+
+sessions:user:123 = { a1, b2, c3 }
+
+
+This enables:
+
+Feature	Possible
+Multi-device login	✅
+Logout one device	✅
+Logout all devices	✅
+Show sessions	✅
+Kill stolen token	✅
