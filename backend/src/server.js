@@ -38,8 +38,8 @@ app.get("/", (req, res) => {
 })
 app.use("/api/v1/auth", authRoutes)
 
+connectRedis();
+connectDB();
 server.listen(process.env.PORT, () => {
     console.log(`Server is running on port ${process.env.PORT}`);
-    connectDB();
-    connectRedis();
 });
