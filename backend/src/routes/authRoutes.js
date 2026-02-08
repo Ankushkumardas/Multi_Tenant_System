@@ -4,20 +4,13 @@ import { checkTenant } from "../middleware/tenantMiddleware.js";
 import {
   registerOwner,
   resendVerificationEmail,
-  sendInvite,
   verifyOwnerEmail,
   login,
   refreshToken,
   logout,
-  getProfile,
   forgotPassword,
   resetPassword,
-  changePasword,
   acceptInvite,
-  updateUserRole,
-  updateProfileData,
-  forceLogoutuser,
-  getActiveSessions,
 } from "../controller/authController.js";
 import { rateLimiter } from "../middleware/ratelimiter.js";
 
@@ -35,15 +28,9 @@ router.post(
   }),
   resendVerificationEmail,
 );
-router.post(
-  "/send-invite",
-  authenticate,
-  checkTenant,
-  authorize(["OWNER", "ADMIN"]),
-  sendInvite,
-);
+
 router.post("/accept-invite", authenticate, checkTenant, acceptInvite);
-router.get("/profile", authenticate, checkTenant, getProfile);
+
 router.post(
   "/login",
   rateLimiter({
@@ -54,6 +41,7 @@ router.post(
   }),
   login,
 );
+
 router.post(
   "/refresh",
   rateLimiter({
@@ -64,7 +52,9 @@ router.post(
   }),
   refreshToken,
 );
+
 router.post("/logout", logout);
+
 router.post(
   "/forgot-password",
   rateLimiter({
@@ -75,6 +65,7 @@ router.post(
   }),
   forgotPassword,
 );
+
 router.post(
   "/reset-password",
   rateLimiter({
@@ -87,33 +78,5 @@ router.post(
   checkTenant,
   resetPassword,
 );
-router.post(
-  "/change-password",
-  rateLimiter({
-    keyPrefix: "change-password",
-    limit: 3,
-    windowsize: 60,
-    identifier: "userId",
-  }),
-  authenticate,
-  checkTenant,
-  changePasword,
-);
-router.put(
-  "/update-role",
-  authenticate,
-  checkTenant,
-  authorize(["OWNER", "ADMIN"]),
-  updateUserRole,
-);
-router.put("/update-profile", authenticate, checkTenant, updateProfileData);
-router.post(
-  "/admin/force-logout/:userId",
-  authenticate,
-  authorize(["OWNER", "ADMIN"]),
-  checkTenant,
-  forceLogoutuser,
-);
-router.get("/sessions", authenticate, checkTenant, getActiveSessions);
 
 export default router;

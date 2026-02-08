@@ -4,18 +4,20 @@ import cors from "cors";
 import morgan from "morgan";
 import cookieParser from "cookie-parser";
 import http from "http";
-import { Server } from 'socket.io';
+import { Server } from "socket.io";
 import { connectDB } from "./utils/database.js";
 import authRoutes from "./routes/authRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
+import userRoutes from "./routes/userRoutes.js";
 import { connectRedis } from "./utils/redis.js";
 dotenv.config();
 
 const app = express();
 app.use(
-    cors({
-        origin: "http://localhost:5173",
-        credentials: true,
-    })
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+  }),
 );
 
 app.use(morgan("dev"));
@@ -26,20 +28,21 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 io.on("connection", (socket) => {
-    console.log("A user connected");
+  console.log("A user connected");
 
-    socket.on("disconnect", () => {
-        console.log("User disconnected");
-    })
-})
+  socket.on("disconnect", () => {
+    console.log("User disconnected");
+  });
+});
 
-app.get("/", (req, res) => {
-    res.send({ message: "Hello World!", status: "OK" });
-})
-app.use("/api/v1/auth", authRoutes)
+// ... existing imports
+
+app.use("/api/auth", authRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/user", userRoutes);
 
 connectRedis();
 connectDB();
 server.listen(process.env.PORT, () => {
-    console.log(`Server is running on port ${process.env.PORT}`);
+  console.log(`Server is running on port ${process.env.PORT}`);
 });
