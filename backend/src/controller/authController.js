@@ -16,6 +16,7 @@ import { verifyRefreshToken } from "../utils/jwt.js";
 import { refreshTokenOptions } from "../utils/cookie.js";
 import { redisClient } from "../utils/redis.js";
 import { generateSessionId } from "../utils/generateSessionId.js";
+import { createNotification } from "../service/notification.js";
 
 export const registerOwner = async (req, res) => {
   try {
@@ -41,11 +42,11 @@ export const registerOwner = async (req, res) => {
       });
     }
 
+    // 1️⃣ Create Tenant (without subscription details initially)
     const tenant = await Tenant.create({
       name: companyName,
       slug: slugify(companyName),
-      subscriptionPlan: requestedPlanName,
-      subscriptionStatus: "ACTIVE",
+      // subscriptionPlan & subscriptionStatus removed from Schema
     });
 
     let selectedPlan = await Plan.findOne({ name: requestedPlanName });
@@ -68,6 +69,7 @@ export const registerOwner = async (req, res) => {
             emailNotification: true,
             integrations: false,
           },
+          isActive: true, // Added field
         },
         {
           name: "PRO",
@@ -85,6 +87,7 @@ export const registerOwner = async (req, res) => {
             emailNotification: true,
             integrations: true,
           },
+          isActive: true,
         },
         {
           name: "ENTERPRISE",
@@ -102,6 +105,7 @@ export const registerOwner = async (req, res) => {
             emailNotification: true,
             integrations: true,
           },
+          isActive: true,
         },
       ];
 
@@ -117,24 +121,31 @@ export const registerOwner = async (req, res) => {
 
     if (!selectedPlan) throw new Error("Failed to initialize plans.");
 
+    // 2️⃣ Create Subscription
     const subscription = new TenantSubscription({
       tenantId: tenant._id,
       planId: selectedPlan._id,
       status: "ACTIVE",
       billingCycle: "MONTHLY",
       startDate: new Date(),
-      endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), //30 days default
+      endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days default
+      autoRenew: true,
+      paymentProvider: "MANUAL",
       history: [
         {
           planId: selectedPlan._id,
-          status: "ACTIVE",
-          billingCycle: "MONTHLY",
           startDate: new Date(),
           endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-          price: selectedPlan.price,
+          changedAt: new Date(),
         },
       ],
     });
+
+    await subscription.save();
+
+    // 3️⃣ Link Subscription to Tenant
+    tenant.currentSubscription = subscription._id;
+    await tenant.save();
 
     newUser.tenantId = tenant._id;
     newUser.role = "OWNER";
@@ -158,7 +169,6 @@ export const registerOwner = async (req, res) => {
         html: `<a href="http://localhost:3000/api/v1/auth/verify-email/${verificationToken}">Verify Email</a>`,
       }),
       newUser.save(),
-      subscription.save(),
     ]);
 
     res.status(201).json({
@@ -420,7 +430,16 @@ export const login = async (req, res) => {
     user.userAgent = req.headers["user-agent"];
     user.lastLoginAt = Date.now();
     await user.save();
+
     res.cookie("refreshToken", refreshToken, refreshTokenOptions);
+
+    await createNotification(req, {
+      tenantId: user.tenantId,
+      userId: user._id,
+      title: "Login successful",
+      type: "LOGIN",
+      message: "You have successfully logged in",
+    });
 
     return res
       .status(200)

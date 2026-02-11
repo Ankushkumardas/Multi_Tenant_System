@@ -39,8 +39,18 @@ export const authorize = (...roles) => {
 
 export const requirePlan = (...plans) => {
   return async (req, res, next) => {
-    const tenant = await Tenant.findById(req.user.tenantId);
-    if (!plans.includes(tenant.subscriptionPlan))
+    const tenant = await Tenant.findById(req.user.tenantId).populate({
+      path: "currentSubscription",
+      populate: { path: "planId" },
+    });
+
+    if (!tenant || !tenant.currentSubscription) {
+      return res.status(403).json({ message: "No active subscription found" });
+    }
+
+    const planName = tenant.currentSubscription.planId.name;
+
+    if (!plans.includes(planName))
       return res.status(403).json({ message: "Upgrade plan" });
     next();
   };
@@ -48,8 +58,15 @@ export const requirePlan = (...plans) => {
 
 export const requirePlanStatus = (...status) => {
   return async (req, res, next) => {
-    const tenant = await Tenant.findById(req.user.tenantId);
-    if (!status.includes(tenant.subscriptionStatus))
+    const tenant = await Tenant.findById(req.user.tenantId).populate(
+      "currentSubscription",
+    );
+
+    if (!tenant || !tenant.currentSubscription) {
+      return res.status(403).json({ message: "No subscription found" });
+    }
+
+    if (!status.includes(tenant.currentSubscription.status))
       return res.status(403).json({ message: "Upgrade plan" });
     next();
   };
