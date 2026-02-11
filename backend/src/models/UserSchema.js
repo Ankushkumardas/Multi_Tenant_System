@@ -1,10 +1,11 @@
 import mongoose from "mongoose";
 
-const UserSchema = new mongoose.Schema({
+const UserSchema = new mongoose.Schema(
+  {
     tenantId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Tenant",
-        default: null, // SUPER_ADMIN
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Tenant",
+      default: null, // SUPER_ADMIN
     },
 
     name: { type: String, required: true },
@@ -12,28 +13,29 @@ const UserSchema = new mongoose.Schema({
     password: { type: String, required: true },
 
     role: {
-        type: String,
-        enum: ["SUPER_ADMIN", "ADMIN", "MANAGER", "USER", "VIEWER","OWNER"],
-        default: "USER",
+      type: String,
+      enum: ["SUPER_ADMIN", "ADMIN", "MANAGER", "USER", "VIEWER", "OWNER"],
+      default: "USER",
     },
 
     isEmailVerified: { type: Boolean, default: false },
-    
+
     status: {
-        type: String,
-        enum: ["ACTIVE", "INVITED", "SUSPENDED"],
-        default: "ACTIVE",
+      type: String,
+      enum: ["ACTIVE", "INVITED", "SUSPENDED"],
+      default: "ACTIVE",
     },
 
-    refreshToken: { type: String },   // 🔐 cookie-based session
-    userAgent: { type: String },      // device/browser info
+    refreshToken: { type: String }, // 🔐 cookie-based session
+    userAgent: { type: String }, // device/browser info
     lastLoginAt: { type: Date },
-}, { timestamps: true });
+  },
+  { timestamps: true },
+);
 
 UserSchema.index({ tenantId: 1, email: 1 }, { unique: true });
 
 export default mongoose.model("User", UserSchema);
-
 
 // 🔍 Field-by-field explanation
 // Field	        Why it exists	Used for

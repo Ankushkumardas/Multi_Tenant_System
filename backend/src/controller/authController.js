@@ -15,6 +15,7 @@ import Invite from "../models/InviteSchema.js";
 import { verifyRefreshToken } from "../utils/jwt.js";
 import { refreshTokenOptions } from "../utils/cookie.js";
 import { redisClient } from "../utils/redis.js";
+import { generateSessionId } from "../utils/generateSessionId.js";
 
 export const registerOwner = async (req, res) => {
   try {
