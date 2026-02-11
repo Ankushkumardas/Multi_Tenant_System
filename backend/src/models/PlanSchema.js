@@ -23,7 +23,6 @@ const PlanSchema = new mongoose.Schema(
       auditlogs: Boolean,
       emailNotification: Boolean,
       integrations: Boolean,
-
       analytics: Boolean,
       notifications: Boolean,
       kanban: Boolean,

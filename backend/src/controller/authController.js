@@ -137,6 +137,7 @@ export const registerOwner = async (req, res) => {
           startDate: new Date(),
           endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           changedAt: new Date(),
+          action: "CREATED",
         },
       ],
     });
@@ -535,7 +536,7 @@ export const updateUserRole = async (req, res) => {
     if (ownerId === userId) {
       return res.status(403).json({ message: "Owner can't update their role" });
     }
-    const user = await User.findById({ ownerId });
+    const user = await User.findById(ownerId);
     if (user.role !== "OWNER") {
       return res
         .status(403)
@@ -546,7 +547,7 @@ export const updateUserRole = async (req, res) => {
         .status(403)
         .json({ message: "You are not authorized to update user role" });
     }
-    const updateUser = await User.findById({ userId, tenantId });
+    const updateUser = await User.findById({ _id: userId, tenantId });
     if (!updateUser) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -670,7 +671,7 @@ export const resetPassword = async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
-    user.password = hashpassword(password);
+    user.password = await hashpassword(password);
     await user.save();
     await emailVerification.remove();
     return res.status(200).json({ message: "Password reset successful" });

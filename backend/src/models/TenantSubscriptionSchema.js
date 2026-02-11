@@ -53,10 +53,14 @@ const TenantSubscriptionSchema = new mongoose.Schema(
         startDate: Date,
         endDate: Date,
         changedAt: Date,
+        action: {
+          type: String,
+          enum: ["CREATED", "UPGRADED", "DOWNGRADED", "RENEWED"],
+        },
       },
     ],
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export default mongoose.model("TenantSubscription", TenantSubscriptionSchema);
