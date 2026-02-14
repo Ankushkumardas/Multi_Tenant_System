@@ -7,7 +7,6 @@ const usageSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Tenant",
       required: true,
-      unique: true,
     },
 
     totalProjects: { type: Number, default: 0 },

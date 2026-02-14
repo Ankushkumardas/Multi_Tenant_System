@@ -17,11 +17,11 @@ const projectSchema = new mongoose.Schema(
       required: true,
     },
 
-    workspaceId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Workspace",
-      default: null,
-    },
+    // workspaceId: {
+    //   type: mongoose.Schema.Types.ObjectId,
+    //   ref: "Workspace",
+    //   default: null,
+    // },
     description: String,
     status: {
       type: String,

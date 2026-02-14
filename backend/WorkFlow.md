@@ -286,3 +286,16 @@ Kafka
 RabbitMQ
 
 Same pattern, bigger engine.
+
+
+Why We Use EventEmitter
+
+We use EventEmitter when:
+
+We don’t want to block the main request
+
+We want to trigger background actions
+
+We want to decouple logic (clean architecture)
+
+One action should trigger multiple side effects
