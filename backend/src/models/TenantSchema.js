@@ -4,18 +4,6 @@ const TenantSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
     slug: { type: String, unique: true },
-
-    // subscriptionPlan: {
-    //   type: String,
-    //   enum: ["FREE", "PRO", "ENTERPRISE"],
-    //   default: "FREE",
-    // },
-
-    // subscriptionStatus: {
-    //   type: String,
-    //   enum: ["ACTIVE", "PAUSED", "CANCELLED"],
-    //   default: "ACTIVE",
-    // },
     currentSubscription: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "TenantSubscription",
