@@ -17,12 +17,6 @@ const PlanSchema = new mongoose.Schema(
 
     features: {
       chat: Boolean,
-      groupChat: Boolean,
-      fileSharing: Boolean,
-      reminder: Boolean,
-      auditlogs: Boolean,
-      emailNotification: Boolean,
-      integrations: Boolean,
       analytics: Boolean,
       notifications: Boolean,
       kanban: Boolean,

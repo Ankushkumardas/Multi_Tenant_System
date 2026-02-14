@@ -13,6 +13,8 @@ import { connectRedis } from "./utils/redis.js";
 import notificationRoutes from "./routes/notificatioRoutes.js";
 import { scheduleCronJobs } from "./service/cronjob.js";
 import subscriptionRoutes from "./routes/subscriptionRoutes.js";
+import projectRoutes from "./routes/projectRoutes.js";
+import taskRoutes from "./routes/taskRoutes.js";
 dotenv.config();
 
 const app = express();
@@ -56,6 +58,8 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/notification", notificationRoutes);
 app.use("/api/subscription", subscriptionRoutes);
+app.use("/api/project", projectRoutes);
+app.use("/api/task", taskRoutes);
 connectRedis();
 connectDB();
 scheduleCronJobs();

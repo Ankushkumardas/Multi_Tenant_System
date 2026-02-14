@@ -1,24 +1,26 @@
+// models/ChatRoom.js
 import mongoose from "mongoose";
 
-const ChatRoomSchema = new mongoose.Schema({
+const chatRoomSchema = new mongoose.Schema(
+  {
     tenantId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Tenant",
-        required: true,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Tenant",
+      required: true,
     },
 
-    type: {
-        type: String,
-        enum: ["DIRECT", "GROUP"],
-        default: "DIRECT",
+    name: { type: String },
+
+    isGroup: { type: Boolean, default: false },
+
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
     },
+  },
+  { timestamps: true }
+);
 
-    participants: [
-        {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "User",
-        },
-    ],
-},{ timestamps: true });
+chatRoomSchema.index({ tenantId: 1 });
 
-export default mongoose.model("ChatRoom", ChatRoomSchema);
+export default mongoose.model("ChatRoom", chatRoomSchema);
