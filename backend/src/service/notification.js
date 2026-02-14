@@ -1,4 +1,5 @@
 import { redisClient } from "../utils/redis";
+import Notification from "../models/NotificationSchema";
 
 export const createNotification = async (
   req,

@@ -11,6 +11,8 @@ import adminRoutes from "./routes/adminRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import { connectRedis } from "./utils/redis.js";
 import notificationRoutes from "./routes/notificatioRoutes.js";
+import { scheduleCronJobs } from "./service/cronjob.js";
+import subscriptionRoutes from "./routes/subscriptionRoutes.js";
 dotenv.config();
 
 const app = express();
@@ -53,8 +55,10 @@ app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/notification", notificationRoutes);
+app.use("/api/subscription", subscriptionRoutes);
 connectRedis();
 connectDB();
+scheduleCronJobs();
 server.listen(process.env.PORT, () => {
   console.log(`Server is running on port ${process.env.PORT}`);
 });
