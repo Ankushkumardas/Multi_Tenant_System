@@ -18,6 +18,7 @@ import { authenticate, authorize } from "../middleware/authMiddleware.js";
 import { checkTenant } from "../middleware/tenantMiddleware.js";
 import { CheckUsageLimit } from "../middleware/checkUsageLimitMiddleware.js";
 import { createTask } from "../controller/taskController.js";
+import { createSection } from "../controller/kanbanSectionController.js";
 
 const router = express.Router();
 
@@ -119,8 +120,18 @@ router.post(
   "/:projectId/tasks",
   authenticate,
   checkTenant,
-  authorize(["OWNER", "ADMIN"]),
+  authorize(["OWNER", "ADMIN", "MANAGER"]),
   checkPermissions(["CREATE_TASK"]),
   createTask,
+);
+
+//kanban section routes
+router.post(
+  "/:projectId/sections",
+  authenticate,
+  checkTenant,
+  authorize(["OWNER", "ADMIN", "MANAGER"]),
+  checkPermissions(["CREATE_SECTION"]),
+  createSection,
 );
 export default router;

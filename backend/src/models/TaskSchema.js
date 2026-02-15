@@ -8,21 +8,21 @@ const taskSchema = new mongoose.Schema(
       ref: "Tenant",
       required: true,
     },
-
     title: { type: String, required: true },
-    description: String,
-
+    description: { type: String, required: true },
     status: {
       type: String,
-      enum: ["TODO", "IN_PROGRESS", "DONE"],
+      enum: ["TODO", "IN_PROGRESS", "DONE", "REVIEW"],
       default: "TODO",
     },
 
     priority: {
       type: String,
       enum: ["LOW", "MEDIUM", "HIGH"],
-      default: "MEDIUM",
+      default: "LOW",
     },
+
+    order: { type: Number, default: 0 },
 
     dueDate: Date,
 

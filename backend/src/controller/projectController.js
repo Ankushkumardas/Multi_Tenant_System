@@ -4,6 +4,7 @@ import User from "../models/UserSchema.js";
 import ProjectMember from "../models/projectMembersSchema.js";
 import ChatRoom from "../models/ChatRoomSchema.js";
 import ChatParticipant from "../models/ChatUserSchema.js";
+import Section from "../models/SectionSchema.js";
 
 export const createProject = async (req, res) => {
   try {
@@ -16,6 +17,22 @@ export const createProject = async (req, res) => {
       ownerId: owner,
       tenantId: user.tenantId,
     });
+
+    // Create Default Sections
+    const defaultSections = [
+      { name: "Todo", order: 1 },
+      { name: "In Progress", order: 2 },
+      { name: "Review", order: 3 },
+      { name: "Done", order: 4 },
+    ];
+
+    await Section.insertMany(
+      defaultSections.map((section) => ({
+        ...section,
+        projectId: project._id,
+        tenantId: user.tenantId,
+      })),
+    );
 
     //by default we will create a respective project chat room
     const chatRoom = await ChatRoom.create({
