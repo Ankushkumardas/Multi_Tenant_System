@@ -1,6 +1,7 @@
 import Project from "../models/ProjectSchema.js";
 import { eventBus } from "../service/EventBus.js";
 import User from "../models/UserSchema.js";
+import ProjectMember from "../models/projectMembersSchema.js";
 
 export const createProject = async (req, res) => {
   try {
@@ -50,7 +51,33 @@ export const archiveProject = async (req, res) => {
       { status: "ARCHIVED" },
       { new: true },
     );
+    eventBus.emit("PROJECT_ARCHIVED", {
+      userId: req.user.userId,
+      projectId: project._id,
+      tenantId: req.user.tenantId,
+    });
+
     res.status(200).json({ message: "Project archived successfully", project });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const toggelArchiver = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const project = await Project.findById(projectId);
+    if (!project) {
+      return res.status(404).json({ message: "Project not found" });
+    }
+    project.status = project.status === "ACTIVE" ? "ARCHIVED" : "ACTIVE";
+    await project.save();
+    eventBus.emit(`PROJECT_${project.status}`, {
+      userId: req.user.userId,
+      projectId: project._id,
+      tenantId: req.user.tenantId,
+    });
+    res.status(200).json({ message: "Project toggled successfully", project });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -67,6 +94,270 @@ export const getProjectById = async (req, res) => {
       tenantId: tenantId,
     });
     res.status(200).json({ message: "Project fetched successfully", project });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const updateProject = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { name, description } = req.body;
+    const owner = req.user.userId;
+    const tenantId = req.user.tenantId;
+    const project = await Project.findOneAndUpdate(
+      { _id: projectId, ownerId: owner, tenantId: tenantId },
+      { name, description },
+      { new: true },
+    );
+    eventBus.emit("PROJECT_UPDATED", {
+      userId: owner,
+      projectId: project._id,
+      tenantId: tenantId,
+    });
+    res.status(200).json({ message: "Project updated successfully", project });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const deleteProject = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const owner = req.user.userId;
+    const tenantId = req.user.tenantId;
+    const project = await Project.findByIdAndDelete({
+      _id: projectId,
+      ownerId: owner,
+      tenantId: tenantId,
+    });
+    if (!project) {
+      return res.status(404).json({ message: "Project not found" });
+    }
+    if (project.status === "ARCHIVED") {
+      return res.status(403).json({
+        message: "Archived project cannot be deleted",
+      });
+    }
+    eventBus.emit("PROJECT_DELETED", {
+      userId: owner,
+      projectId: project._id,
+      tenantId: tenantId,
+    });
+    res.status(200).json({ message: "Project deleted successfully", project });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const addMemberToProject = async (req, res) => {
+  try {
+    const tenantId = req.user.tenantId;
+    const { projectId } = req.params;
+    const { userId } = req.body;
+    const project = await Project.findOne({
+      _id: projectId,
+      tenantId: tenantId,
+    });
+    if (!project) {
+      return res.status(404).json({ message: "Project not found" });
+    }
+    const user = await User.findOne({ _id: userId });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    if (user.tenantId !== tenantId) {
+      return res
+        .status(403)
+        .json({ message: "User is not in the same tenant" });
+    }
+    //check if user is already a member
+    const existingMember = await ProjectMember.findOne({
+      tenantId,
+      projectId,
+      userId,
+    });
+    if (existingMember) {
+      return res.status(400).json({ message: "User is already a member" });
+    }
+    const projectMember = await ProjectMember.create({
+      tenantId,
+      projectId,
+      userId,
+      role: user.role,
+    });
+    eventBus.emit("MEMBER_ADDED", {
+      userId: req.user.userId,
+      projectId: project._id,
+      tenantId: tenantId,
+    });
+    res
+      .status(200)
+      .json({ message: "Member added successfully", projectMember });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const removeMemberFromProject = async (req, res) => {
+  try {
+    const tenantId = req.user.tenantId;
+    const { projectId } = req.params;
+    const { userId } = req.body;
+    const project = await Project.findOne({
+      _id: projectId,
+      tenantId: tenantId,
+    });
+    if (!project) {
+      return res.status(404).json({ message: "Project not found" });
+    }
+    const user = await User.findOne({ _id: userId });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    if (user.tenantId !== tenantId) {
+      return res
+        .status(403)
+        .json({ message: "User is not in the same tenant" });
+    }
+    //check if user is already a member
+    const existingMember = await ProjectMember.findOne({
+      tenantId,
+      projectId,
+      userId,
+    });
+    if (!existingMember) {
+      return res.status(400).json({ message: "User is not a member" });
+    }
+    const projectMember = await ProjectMember.findByIdAndDelete({
+      _id: existingMember._id,
+      tenantId,
+      projectId,
+      userId,
+    });
+    eventBus.emit("MEMBER_REMOVED", {
+      userId: req.user.userId,
+      projectId: project._id,
+      tenantId: tenantId,
+    });
+    res
+      .status(200)
+      .json({ message: "Member removed successfully", projectMember });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getProjectMembers = async (req, res) => {
+  try {
+    const tenantId = req.user.tenantId;
+    const { projectId } = req.params;
+    const project = await Project.findOne({
+      _id: projectId,
+      tenantId: tenantId,
+    });
+    if (!project) {
+      return res.status(404).json({ message: "Project not found" });
+    }
+    const projectMembers = await ProjectMember.find({
+      tenantId,
+      projectId,
+    }).populate("userId", "name email role");
+    res.status(200).json({
+      message: "Project members fetched successfully",
+      projectMembers,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const updateprojectMemberRole = async (req, res) => {
+  try {
+    const tenantId = req.user.tenantId;
+    const { projectId } = req.params;
+    const { userId, role } = req.body;
+    const project = await Project.findOne({
+      _id: projectId,
+      tenantId: tenantId,
+    });
+    if (!project) {
+      return res.status(404).json({ message: "Project not found" });
+    }
+    const user = await User.findOne({ _id: userId });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    if (user.tenantId !== tenantId) {
+      return res
+        .status(403)
+        .json({ message: "User is not in the same tenant" });
+    }
+    //check if user is already a member
+    const existingMember = await ProjectMember.findOne({
+      tenantId,
+      projectId,
+      userId,
+    });
+    if (!existingMember) {
+      return res.status(400).json({ message: "User is not a member" });
+    }
+    const projectMember = await ProjectMember.findOneAndUpdate(
+      { _id: existingMember._id, tenantId, projectId, userId },
+      { role },
+      { new: true },
+    );
+    eventBus.emit("MEMBER_ROLE_UPDATED", {
+      userId: req.user.userId,
+      projectId: project._id,
+      tenantId: tenantId,
+    });
+    res
+      .status(200)
+      .json({ message: "Member role updated successfully", projectMember });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const Leaveproject = async (req, res) => {
+  try {
+    const tenantId = req.user.tenantId;
+    const { projectId } = req.params;
+    const project = await Project.findOne({
+      _id: projectId,
+      tenantId: tenantId,
+    });
+    if (!project) {
+      return res.status(404).json({ message: "Project not found" });
+    }
+    const projectMembers = await ProjectMember.findOne({
+      tenantId,
+      projectId,
+      userId: req.user.userId,
+    });
+    if (!projectMembers) {
+      return res.status(400).json({ message: "User is not a member" });
+    }
+    if (projectMembers.role === "OWNER") {
+      return res
+        .status(400)
+        .json({ message: "Owner cannot leave the project" });
+    }
+    await ProjectMember.findByIdAndDelete({
+      _id: projectMembers._id,
+      tenantId,
+      projectId,
+      userId: req.user.userId,
+    });
+    eventBus.emit("MEMBER_REMOVED", {
+      userId: req.user.userId,
+      projectId: project._id,
+      tenantId: tenantId,
+    });
+    res
+      .status(200)
+      .json({ message: "Member removed successfully", projectMembers });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

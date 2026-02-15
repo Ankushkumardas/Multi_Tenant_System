@@ -9,19 +9,11 @@ const projectSchema = new mongoose.Schema(
     },
 
     name: { type: String, required: true },
-    description: String,
-
     ownerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
-
-    // workspaceId: {
-    //   type: mongoose.Schema.Types.ObjectId,
-    //   ref: "Workspace",
-    //   default: null,
-    // },
     description: String,
     status: {
       type: String,
