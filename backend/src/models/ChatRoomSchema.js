@@ -3,6 +3,10 @@ import mongoose from "mongoose";
 
 const chatRoomSchema = new mongoose.Schema(
   {
+    projectId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Project",
+    },
     tenantId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Tenant",
@@ -10,15 +14,19 @@ const chatRoomSchema = new mongoose.Schema(
     },
 
     name: { type: String },
-
-    isGroup: { type: Boolean, default: false },
+    type: {
+      type: String,
+      enum: ["PROJECT", "GROUP", "DIRECT"],
+      default: "PROJECT",
+    },
+    // isGroup: { type: Boolean, default: false },
 
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 chatRoomSchema.index({ tenantId: 1 });

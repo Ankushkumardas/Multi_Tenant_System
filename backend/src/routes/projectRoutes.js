@@ -17,6 +17,7 @@ import {
 import { authenticate, authorize } from "../middleware/authMiddleware.js";
 import { checkTenant } from "../middleware/tenantMiddleware.js";
 import { CheckUsageLimit } from "../middleware/checkUsageLimitMiddleware.js";
+import { createTask } from "../controller/taskController.js";
 
 const router = express.Router();
 
@@ -111,5 +112,15 @@ router.get(
   checkTenant,
   checkPermissions(["READ_PROJECT"]),
   getProjectMembers,
+);
+
+//task routes
+router.post(
+  "/:projectId/tasks",
+  authenticate,
+  checkTenant,
+  authorize(["OWNER", "ADMIN"]),
+  checkPermissions(["CREATE_TASK"]),
+  createTask,
 );
 export default router;

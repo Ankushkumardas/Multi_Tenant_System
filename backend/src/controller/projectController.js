@@ -2,6 +2,8 @@ import Project from "../models/ProjectSchema.js";
 import { eventBus } from "../service/EventBus.js";
 import User from "../models/UserSchema.js";
 import ProjectMember from "../models/projectMembersSchema.js";
+import ChatRoom from "../models/ChatRoomSchema.js";
+import ChatParticipant from "../models/ChatUserSchema.js";
 
 export const createProject = async (req, res) => {
   try {
@@ -13,6 +15,29 @@ export const createProject = async (req, res) => {
       description,
       ownerId: owner,
       tenantId: user.tenantId,
+    });
+
+    //by default we will create a respective project chat room
+    const chatRoom = await ChatRoom.create({
+      name: `${project.name} - General`,
+      type: "PROJECT",
+      projectId: project._id,
+      tenantId: user.tenantId,
+      createdBy: owner,
+    });
+
+    // Create Project Member for Owner
+    await ProjectMember.create({
+      tenantId: user.tenantId,
+      projectId: project._id,
+      userId: owner,
+      role: "OWNER",
+    });
+
+    // Add Owner to Chat Participants
+    await ChatParticipant.create({
+      chatRoomId: chatRoom._id,
+      userId: owner,
     });
     //emit event,
     eventBus.emit("PROJECT_CREATED", {
@@ -186,6 +211,26 @@ export const addMemberToProject = async (req, res) => {
       userId,
       role: user.role,
     });
+
+    // Add to Default Project Chat Room
+    const chatRoom = await ChatRoom.findOne({
+      projectId: project._id,
+      type: "PROJECT",
+      tenantId: tenantId,
+    });
+    if (chatRoom) {
+      // Check if already a participant to avoid duplicates (though index handles unique)
+      const existingParticipant = await ChatParticipant.findOne({
+        chatRoomId: chatRoom._id,
+        userId: userId,
+      });
+      if (!existingParticipant) {
+        await ChatParticipant.create({
+          chatRoomId: chatRoom._id,
+          userId: userId,
+        });
+      }
+    }
     eventBus.emit("MEMBER_ADDED", {
       userId: req.user.userId,
       projectId: project._id,
@@ -235,6 +280,19 @@ export const removeMemberFromProject = async (req, res) => {
       projectId,
       userId,
     });
+
+    // Remove from Default Project Chat Room
+    const chatRoom = await ChatRoom.findOne({
+      projectId: project._id,
+      type: "PROJECT",
+      tenantId: tenantId,
+    });
+    if (chatRoom) {
+      await ChatParticipant.findOneAndDelete({
+        chatRoomId: chatRoom._id,
+        userId: userId,
+      });
+    }
     eventBus.emit("MEMBER_REMOVED", {
       userId: req.user.userId,
       projectId: project._id,
@@ -350,6 +408,19 @@ export const Leaveproject = async (req, res) => {
       projectId,
       userId: req.user.userId,
     });
+
+    // Remove from Default Project Chat Room
+    const chatRoom = await ChatRoom.findOne({
+      projectId: project._id,
+      type: "PROJECT",
+      tenantId: tenantId,
+    });
+    if (chatRoom) {
+      await ChatParticipant.findOneAndDelete({
+        chatRoomId: chatRoom._id,
+        userId: req.user.userId,
+      });
+    }
     eventBus.emit("MEMBER_REMOVED", {
       userId: req.user.userId,
       projectId: project._id,
