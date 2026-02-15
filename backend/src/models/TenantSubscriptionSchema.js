@@ -1,3 +1,5 @@
+import mongoose from "mongoose";
+
 const TenantSubscriptionSchema = new mongoose.Schema(
   {
     tenantId: {

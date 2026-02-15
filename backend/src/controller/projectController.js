@@ -1,7 +1,8 @@
 import Project from "../models/ProjectSchema.js";
 import { eventBus } from "../service/EventBus.js";
+import User from "../models/UserSchema.js";
 
-export const craeteProject = async (req, res) => {
+export const createProject = async (req, res) => {
   try {
     const { name, description } = req.body;
     const owner = req.user.userId;
@@ -24,10 +25,15 @@ export const craeteProject = async (req, res) => {
   }
 };
 
-export const getMyProject = async (req, res) => {
+export const getMyProjects = async (req, res) => {
   try {
     const owner = req.user.userId;
-    const projects = await Project.find({ ownerId: owner });
+    const tenantId = req.user.tenantId;
+    const projects = await Project.find({
+      ownerId: owner,
+      tenantId: tenantId,
+      status: "ACTIVE",
+    }).sort({ createdAt: -1 });
     res
       .status(200)
       .json({ message: "Projects fetched successfully", projects });
@@ -36,15 +42,31 @@ export const getMyProject = async (req, res) => {
   }
 };
 
-export const updateProject = async (req, res) => {
+export const archiveProject = async (req, res) => {
   try {
+    const { projectId } = req.params;
+    const project = await Project.findByIdAndUpdate(
+      projectId,
+      { status: "ARCHIVED" },
+      { new: true },
+    );
+    res.status(200).json({ message: "Project archived successfully", project });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-export const deleteProject = async (req, res) => {
+export const getProjectById = async (req, res) => {
   try {
+    const { projectId } = req.params;
+    const owner = req.user.userId;
+    const tenantId = req.user.tenantId;
+    const project = await Project.findOne({
+      _id: projectId,
+      ownerId: owner,
+      tenantId: tenantId,
+    });
+    res.status(200).json({ message: "Project fetched successfully", project });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

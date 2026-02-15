@@ -23,7 +23,7 @@ eventBus.on("PROJECT_CREATED", async (data) => {
     await Audit.create({
       actorUserId: data.userId,
       tenantId: data.tenantId,
-      action: "CREATE",
+      action: "PROJECT_CREATED",
       metadata: {
         projectId: data.projectId,
       },

@@ -20,7 +20,7 @@ export const CheckUsageLimit = (type) => {
         });
       }
     }
-    if (type === "USER") {
+    if (type === "user") {
       const userCount = await User.countDocuments({ tenantId });
       if (userCount >= plan.limits.maxUsers) {
         return res
