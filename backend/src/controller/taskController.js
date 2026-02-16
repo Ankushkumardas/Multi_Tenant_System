@@ -155,6 +155,17 @@ export const assignTask = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Task not found" });
     }
+
+    //notify to assined memeebrs
+    for (const userId of assignedTo) {
+      await createNotification(req, {
+        type: "ASSIGN_TASK",
+        targetId: taskId,
+        targetType: "TASK",
+        message: `${req.user.name} assigned you a task`,
+        userId: userId,
+      });
+    }
     res
       .status(200)
       .json({ success: true, task, message: "Task Assigned Successfully" });
@@ -178,13 +189,11 @@ export const updateTaskStatus = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Task not found" });
     }
-    res
-      .status(200)
-      .json({
-        success: true,
-        task,
-        message: "Task Status Updated Successfully",
-      });
+    res.status(200).json({
+      success: true,
+      task,
+      message: "Task Status Updated Successfully",
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -205,13 +214,11 @@ export const updateTaskPriority = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Task not found" });
     }
-    res
-      .status(200)
-      .json({
-        success: true,
-        task,
-        message: "Task Priority Updated Successfully",
-      });
+    res.status(200).json({
+      success: true,
+      task,
+      message: "Task Priority Updated Successfully",
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -232,13 +239,11 @@ export const updateTaskDueDate = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Task not found" });
     }
-    res
-      .status(200)
-      .json({
-        success: true,
-        task,
-        message: "Task Due Date Updated Successfully",
-      });
+    res.status(200).json({
+      success: true,
+      task,
+      message: "Task Due Date Updated Successfully",
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
