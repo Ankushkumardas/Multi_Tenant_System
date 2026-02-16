@@ -18,7 +18,13 @@ import { authenticate, authorize } from "../middleware/authMiddleware.js";
 import { checkTenant } from "../middleware/tenantMiddleware.js";
 import { CheckUsageLimit } from "../middleware/checkUsageLimitMiddleware.js";
 import { createTask } from "../controller/taskController.js";
-import { createSection } from "../controller/kanbanSectionController.js";
+import {
+  createSection,
+  deleteSection,
+  getProjectSections,
+  updateSection,
+  updateSectionOrder,
+} from "../controller/kanbanSectionController.js";
 
 const router = express.Router();
 
@@ -133,5 +139,40 @@ router.post(
   authorize(["OWNER", "ADMIN", "MANAGER"]),
   checkPermissions(["CREATE_SECTION"]),
   createSection,
+);
+
+router.put(
+  "/:projectId/sections/:sectionId",
+  authenticate,
+  checkTenant,
+  authorize(["OWNER", "ADMIN", "MANAGER"]),
+  checkPermissions(["UPDATE_SECTION"]),
+  updateSection,
+);
+
+router.delete(
+  "/:projectId/sections/:sectionId",
+  authenticate,
+  checkTenant,
+  authorize(["OWNER", "ADMIN", "MANAGER"]),
+  checkPermissions(["DELETE_SECTION"]),
+  deleteSection,
+);
+
+router.put(
+  "/:projectId/sections/order",
+  authenticate,
+  checkTenant,
+  authorize(["OWNER", "ADMIN", "MANAGER"]),
+  checkPermissions(["UPDATE_SECTION_ORDER"]),
+  updateSectionOrder,
+);
+
+router.get(
+  "/:projectId/sections",
+  authenticate,
+  checkTenant,
+  checkPermissions(["READ_SECTION"]),
+  getProjectSections,
 );
 export default router;
