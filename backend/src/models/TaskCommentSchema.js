@@ -20,10 +20,15 @@ const taskCommentSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-
+    mentions: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
     message: { type: String, required: true },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 taskCommentSchema.index({ tenantId: 1, taskId: 1 });

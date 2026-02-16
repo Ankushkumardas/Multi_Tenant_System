@@ -17,14 +17,30 @@ import {
 import { authenticate, authorize } from "../middleware/authMiddleware.js";
 import { checkTenant } from "../middleware/tenantMiddleware.js";
 import { CheckUsageLimit } from "../middleware/checkUsageLimitMiddleware.js";
-import { createTask } from "../controller/taskController.js";
+import {
+  assignTask,
+  createTask,
+  deleteTask,
+  getSingleTask,
+  updateTask,
+  updateTaskDueDate,
+  updateTaskPriority,
+  updateTaskStatus,
+} from "../controller/taskController.js";
 import {
   createSection,
   deleteSection,
+  getBoard,
   getProjectSections,
   updateSection,
   updateSectionOrder,
 } from "../controller/kanbanSectionController.js";
+import {
+  createComment,
+  deleteComment,
+  getComments,
+  updateComment,
+} from "../controller/taskCommentController.js";
 
 const router = express.Router();
 
@@ -131,6 +147,68 @@ router.post(
   createTask,
 );
 
+router.put(
+  "/:projectId/tasks/:taskId",
+  authenticate,
+  checkTenant,
+  authorize(["OWNER", "ADMIN", "MANAGER"]),
+  checkPermissions(["UPDATE_TASK"]),
+  updateTask,
+);
+
+router.delete(
+  "/:projectId/tasks/:taskId",
+  authenticate,
+  checkTenant,
+  authorize(["OWNER", "ADMIN", "MANAGER"]),
+  checkPermissions(["DELETE_TASK"]),
+  deleteTask,
+);
+
+router.get(
+  "/:projectId/tasks/:taskId",
+  authenticate,
+  checkTenant,
+  checkPermissions(["READ_TASK"]),
+  getSingleTask,
+);
+
+router.post(
+  "/:projectId/tasks/:taskId/assign",
+  authenticate,
+  checkTenant,
+  authorize(["OWNER", "ADMIN", "MANAGER"]),
+  checkPermissions(["ASSIGN_TASK"]),
+  assignTask,
+);
+
+router.put(
+  "/:projectId/tasks/:taskId/status",
+  authenticate,
+  checkTenant,
+  authorize(["OWNER", "ADMIN", "MANAGER"]),
+  checkPermissions(["UPDATE_TASK_STATUS"]),
+  updateTaskStatus,
+);
+
+router.put(
+  "/:projectId/tasks/:taskId/priority",
+  authenticate,
+  checkTenant,
+  authorize(["OWNER", "ADMIN", "MANAGER"]),
+  checkPermissions(["UPDATE_TASK_PRIORITY"]),
+  updateTaskPriority,
+);
+
+router.put(
+  "/:projectId/tasks/:taskId/due-date",
+  authenticate,
+  checkTenant,
+  authorize(["OWNER", "ADMIN", "MANAGER"]),
+  checkPermissions(["UPDATE_TASK_DUE_DATE"]),
+  updateTaskDueDate,
+);
+
 //kanban section routes
 router.post(
   "/:projectId/sections",
@@ -174,5 +252,50 @@ router.get(
   checkTenant,
   checkPermissions(["READ_SECTION"]),
   getProjectSections,
+);
+
+router.get(
+  "/:projectId/board",
+  authenticate,
+  checkTenant,
+  checkPermissions(["READ_BOARD"]),
+  getBoard,
+);
+
+//task commnest routes
+router.post(
+  "/:projectId/tasks/:taskId/comments",
+  authenticate,
+  checkTenant,
+  authorize(["OWNER", "ADMIN", "MANAGER", "MEMBER", "USER", "VIEWER"]),
+  checkPermissions(["CREATE_COMMENT"]),
+  createComment,
+);
+
+router.get(
+  "/:projectId/tasks/:taskId/comments",
+  authenticate,
+  checkTenant,
+  authorize(["OWNER", "ADMIN", "MANAGER", "MEMBER", "USER", "VIEWER"]),
+  checkPermissions(["READ_COMMENT"]),
+  getComments,
+);
+
+router.delete(
+  "/:projectId/tasks/:taskId/comments/:commentId",
+  authenticate,
+  checkTenant,
+  authorize(["OWNER", "ADMIN", "MANAGER", "MEMBER", "USER", "VIEWER"]),
+  checkPermissions(["DELETE_COMMENT"]),
+  deleteComment,
+);
+
+router.put(
+  "/:projectId/tasks/:taskId/comments/:commentId",
+  authenticate,
+  checkTenant,
+  authorize(["OWNER", "ADMIN", "MANAGER", "MEMBER", "USER", "VIEWER"]),
+  checkPermissions(["UPDATE_COMMENT"]),
+  updateComment,
 );
 export default router;
