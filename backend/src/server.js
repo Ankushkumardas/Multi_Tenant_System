@@ -16,6 +16,8 @@ import subscriptionRoutes from "./routes/subscriptionRoutes.js";
 import projectRoutes from "./routes/projectRoutes.js";
 import jwt from "jsonwebtoken";
 import User from "./models/UserSchema.js";
+import ChatParticpant from "./models/ChatUserSchema.js";
+import { setupSocket } from "./socket/socket.js";
 dotenv.config();
 
 const app = express();
@@ -32,45 +34,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 const server = http.createServer(app);
 
-const io = new Server(server, {
-  cors: {
-    origin: "*",
-    credentials: true,
-  },
-});
-//middleware for socket for vertify authentication
-io.use(async (socket, next) => {
-  const token = socket.handshake.auth.token;
-  if (!token) {
-    return next(new Error("Unauthorized"));
-  }
-  const decode = jwt.verify(token, process.env.JWT_SECRET);
-  const user = await User.findById(decode.userId);
-  if (!user) {
-    return next(new Error("Unauthorized"));
-  }
-  socket.userId = user._id;
-  socket.tenantId = user.tenantId;
-  socket.userRole = user.role;
-  socket.user = user;
-  next();
-});
-// Make io globally available like set and get in redis setting under "req" key valye pair
-app.set("io", io);
-
-//socket io connect from backend
-io.on("connection", async (socket) => {
-  const userId = socket.handshake.auth.userId;
-  if (userId) {
-    socket.join(userId); // 👈 join room
-  }
-  console.log("User connected:", userId);
-
-  socket.on("disconnect", () => {
-    console.log("User disconnected:", userId);
-  });
-});
-
+//connectiing socket.io
+setupSocket(server);
 //routes
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);

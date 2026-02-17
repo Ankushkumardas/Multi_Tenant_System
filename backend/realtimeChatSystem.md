@@ -94,3 +94,27 @@ We are going to build:
 7️⃣ Online Presence Engine
 8️⃣ Typing State Engine
 
+
+
+
+User connects
+   ↓
+JWT verified
+   ↓
+Joins personal room
+   ↓
+Joins chat rooms
+   ↓
+Sends message
+   ↓
+Saved to DB
+   ↓
+Broadcast to room
+   ↓
+Notification emitted
+   ↓
+Read receipts updated
+   ↓
+Presence updated
+   ↓
+Typing indicator active
