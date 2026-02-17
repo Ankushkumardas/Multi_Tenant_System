@@ -1,0 +1,159 @@
+erDiagram
+    %% Core Identity & Tenant
+    Tenant {
+        ObjectId _id PK
+        String name
+        String slug
+        ObjectId currentSubscription FK
+        Boolean isSuspended
+    }
+
+    User {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        String name
+        String email
+        String password
+        String role "OWNER, ADMIN, MANAGER, USER, VIEWER"
+        String status
+    }
+
+    Tenant ||--o{ User : "has members"
+
+    %% Billing & Subscription
+    TenantSubscription {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        ObjectId planId FK
+        String status "ACTIVE, EXPIRED"
+        Date startDate
+        Date endDate
+        String billingCycle
+    }
+
+    Plan {
+        ObjectId _id PK
+        String name "FREE, PRO, ENTERPRISE"
+        Number price
+        Object limits
+    }
+
+    Tenant ||--o| TenantSubscription : "has active"
+    TenantSubscription }|--|| Plan : "subscribes to"
+
+    %% Project Management
+    Project {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        ObjectId ownerId FK
+        String name
+        String status "ACTIVE, ARCHIVED"
+    }
+
+    ProjectMember {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        ObjectId projectId FK
+        ObjectId userId FK
+        String role
+    }
+
+    Section {
+        ObjectId _id PK
+        ObjectId projectId FK
+        String name
+        Number order
+    }
+
+    Task {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        ObjectId projectId FK
+        ObjectId sectionId FK
+        String title
+        String status
+        String priority
+        Date dueDate
+        ObjectId[] assignedTo FK
+        ObjectId createdBy FK
+    }
+
+    TaskComment {
+        ObjectId _id PK
+        ObjectId taskId FK
+        ObjectId userId FK
+        String message
+        ObjectId[] mentions FK
+    }
+
+    Tenant ||--o{ Project : "owns"
+    User ||--o{ Project : "owns"
+    Project ||--o{ ProjectMember : "has members"
+    User ||--o{ ProjectMember : "is member of"
+    Project ||--o{ Section : "contains"
+    Section ||--o{ Task : "organizes"
+    Project ||--o{ Task : "contains"
+    Task }|--|{ User : "assigned to"
+    Task ||--o{ TaskComment : "has comments"
+    User ||--o{ TaskComment : "writes"
+
+    %% Chat System
+    ChatRoom {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        ObjectId projectId FK "Optional"
+        String name
+        String type "PROJECT, GROUP, DIRECT"
+    }
+
+    ChatParticipant {
+        ObjectId _id PK
+        ObjectId chatRoomId FK
+        ObjectId userId FK
+    }
+
+    Message {
+        ObjectId _id PK
+        ObjectId chatRoomId FK
+        ObjectId senderId FK
+        String content
+        Boolean isEdited
+        ObjectId[] readBy
+    }
+
+    Tenant ||--o{ ChatRoom : "has rooms"
+    Project |o--o{ ChatRoom : "linked to"
+    ChatRoom ||--o{ ChatParticipant : "includes"
+    User ||--o{ ChatParticipant : "joins"
+    ChatRoom ||--o{ Message : "contains"
+    User ||--o{ Message : "sends"
+
+    %% System Audits & Utilities
+    Notification {
+        ObjectId _id PK
+        ObjectId userId FK
+        String type
+        String message
+        Boolean isRead
+    }
+
+    ActivityLog {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        ObjectId userId FK
+        String actionType
+        String entityType
+    }
+
+    Invite {
+        ObjectId _id PK
+        ObjectId tenantId FK
+        String email
+        String token
+        String status
+    }
+
+    Tenant ||--o{ Notification : "triggers"
+    User ||--o{ Notification : "receives"
+    Tenant ||--o{ ActivityLog : "logs"
+    Tenant ||--o{ Invite : "pending offers"
