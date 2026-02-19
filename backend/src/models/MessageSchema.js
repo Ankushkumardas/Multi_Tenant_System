@@ -36,6 +36,7 @@ const MessageSchema = new mongoose.Schema(
     ],
     content: { type: String, required: true },
     isEdited: { type: Boolean, default: false },
+    isPinned: { type: Boolean, default: false },
   },
   { timestamps: true },
 );
