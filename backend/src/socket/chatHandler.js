@@ -1,5 +1,8 @@
 import ChatParticpant from "../models/ChatUserSchema.js";
 import Message from "../models/MessageSchema.js";
+import { extractMentions } from "../utils/extractMentions.js";
+import User from "../models/UserSchema.js";
+import { createNotification } from "../service/notification.js";
 
 export const registerChatHandler = async (io, socket) => {
   const userId = socket.userId;
@@ -15,6 +18,8 @@ export const registerChatHandler = async (io, socket) => {
   //send message
   socket.on("sendMessage", async (data) => {
     const { chatRoomId, content } = data;
+    const mentions = extractMentions(content);
+    const mentionedUsers = await User.find({ username: { $in: mentions } });
     const message = await Message.create({
       tenantId: tenantId,
       chatRoomId: chatRoomId,
@@ -22,8 +27,19 @@ export const registerChatHandler = async (io, socket) => {
       senderId: userId,
       readBy: [userId],
       deletedFor: [],
+      mentions: mentionedUsers.map((u) => u._id),
     });
     io.to(chatRoomId).emit("newMessage", message);
+
+    //notify user taht they are been mebtioned
+    mentionedUsers.map((m) => {
+      createNotification({
+        userId: m._id,
+        type: "MENTION",
+        message: `${user.username} mentioned you in ${chatRoomId}`,
+        tenantId: tenantId,
+      });
+    });
   });
 
   //mark as read

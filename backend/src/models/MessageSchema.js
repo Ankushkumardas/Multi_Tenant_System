@@ -37,6 +37,22 @@ const MessageSchema = new mongoose.Schema(
     content: { type: String, required: true },
     isEdited: { type: Boolean, default: false },
     isPinned: { type: Boolean, default: false },
+    parentMessageId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Message",
+      default: null,
+    },
+    replyTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Message",
+      default: null,
+    },
+    mentions: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
   },
   { timestamps: true },
 );

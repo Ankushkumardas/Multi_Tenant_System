@@ -66,3 +66,40 @@ export const searchMessage = async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
+//thread reply or forward message
+export const replyMessage = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const { content } = req.boby;
+    const parentMessage = await Message.findById(messageId);
+    if (!parentMessage) {
+      return res.status(404).json({ message: "Message not found" });
+    }
+    const message = await Message.create({
+      tenantId: req.user.tenantId,
+      chatRoomId: parentMessage.chatRoomId,
+      content: content,
+      senderId: req.user.userId,
+      readBy: [req.user.userId],
+      deletedFor: [],
+      parentMessageId: messageId,
+    });
+    res.status(200).json({ message: "Message replied", message });
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const getThreadMessage = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const replies = await Message.find({ parentMessageId: messageId })
+      .sort({ createdAt: 1 })
+      .populate("senderId", "name email");
+    res.status(200).json({ replies });
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+//@username fucntionality

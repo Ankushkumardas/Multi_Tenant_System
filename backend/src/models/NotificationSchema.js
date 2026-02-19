@@ -20,6 +20,7 @@ const NotificationSchema = new mongoose.Schema(
         "BILLING",
         "USER",
         "AUTH",
+        "MENTION",
         "INVITE",
         "SECURITY",
         "PROJECT",
