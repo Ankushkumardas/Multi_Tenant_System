@@ -19,12 +19,12 @@ export const setupSocket = (server) => {
   io.use(async (socket, next) => {
     const token = socket.handshake.auth.token;
     if (!token) {
-      return next(new Error("Unauthorized"));
+      return next(new Error("In socket connection Unauthorized"));
     }
     const decode = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decode.userId);
+    const user = await User.findById(decode.userId.toString());
     if (!user) {
-      return next(new Error("Unauthorized"));
+      return next(new Error("In socket connection Unauthorized"));
     }
     socket.userId = user._id;
     socket.tenantId = user.tenantId;

@@ -118,3 +118,37 @@ Read receipts updated
 Presence updated
    ↓
 Typing indicator active
+
+
+
+//feature sor controllers Chat Room Level
+
+Create room
+
+Get user rooms
+
+Get single room details
+
+Update room (rename etc.)
+
+Delete room
+
+Leave room
+
+Add participant
+
+Remove participant
+
+🔹 Message Level
+
+Get messages (paginated)
+
+Soft delete message
+
+Edit message
+
+Pin message
+
+React to message
+
+Search messages
