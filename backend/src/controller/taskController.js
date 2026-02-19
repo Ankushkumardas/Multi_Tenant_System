@@ -1,4 +1,5 @@
 import Task from "../models/TaskSchema.js";
+import { saveAuditLog, saveActivityLog } from "../service/auditLogger.js";
 
 export const createTask = async (req, res) => {
   try {
@@ -25,6 +26,24 @@ export const createTask = async (req, res) => {
       assignedTo,
       sectionId,
       createdBy,
+    });
+    const meta = { taskId: task._id, title, projectId };
+    saveAuditLog({
+      tenantId,
+      actorUserId: createdBy,
+      action: "TASK_CREATED",
+      metadata: meta,
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+    saveActivityLog({
+      tenantId,
+      userId: createdBy,
+      actionType: "TASK_CREATED",
+      entityId: task._id,
+      entityType: "Task",
+      projectId,
+      details: meta,
     });
     res
       .status(201)
@@ -75,6 +94,24 @@ export const updateTask = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Task not found" });
     }
+    const meta = { taskId, changes: req.body };
+    saveAuditLog({
+      tenantId,
+      actorUserId: req.user.userId,
+      action: "TASK_UPDATED",
+      metadata: meta,
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+    saveActivityLog({
+      tenantId,
+      userId: req.user.userId,
+      actionType: "TASK_UPDATED",
+      entityId: taskId,
+      entityType: "Task",
+      projectId: task.projectId,
+      details: meta,
+    });
     res
       .status(200)
       .json({ success: true, task, message: "Task Updated Successfully" });
@@ -93,6 +130,23 @@ export const deleteTask = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Task not found" });
     }
+    saveAuditLog({
+      tenantId,
+      actorUserId: req.user.userId,
+      action: "TASK_DELETED",
+      metadata: { taskId },
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+    saveActivityLog({
+      tenantId,
+      userId: req.user.userId,
+      actionType: "TASK_DELETED",
+      entityId: taskId,
+      entityType: "Task",
+      projectId: task.projectId,
+      details: { taskId },
+    });
     res
       .status(200)
       .json({ success: true, task, message: "Task Deleted Successfully" });
@@ -134,6 +188,23 @@ export const moveTask = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Task not found" });
     }
+    saveAuditLog({
+      tenantId,
+      actorUserId: req.user.userId,
+      action: "TASK_MOVED",
+      metadata: { taskId, sectionId },
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+    saveActivityLog({
+      tenantId,
+      userId: req.user.userId,
+      actionType: "TASK_MOVED",
+      entityId: taskId,
+      entityType: "Task",
+      projectId: task.projectId,
+      details: { sectionId },
+    });
     res.status(200).json({ success: true, task });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -166,6 +237,23 @@ export const assignTask = async (req, res) => {
         userId: userId,
       });
     }
+    saveAuditLog({
+      tenantId,
+      actorUserId: req.user.userId,
+      action: "TASK_ASSIGNED",
+      metadata: { taskId, assignedTo },
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+    saveActivityLog({
+      tenantId,
+      userId: req.user.userId,
+      actionType: "TASK_ASSIGNED",
+      entityId: taskId,
+      entityType: "Task",
+      projectId: task.projectId,
+      details: { assignedTo },
+    });
     res
       .status(200)
       .json({ success: true, task, message: "Task Assigned Successfully" });
@@ -189,6 +277,23 @@ export const updateTaskStatus = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Task not found" });
     }
+    saveAuditLog({
+      tenantId,
+      actorUserId: req.user.userId,
+      action: "TASK_STATUS_CHANGED",
+      metadata: { taskId, status },
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+    saveActivityLog({
+      tenantId,
+      userId: req.user.userId,
+      actionType: "TASK_STATUS_CHANGED",
+      entityId: taskId,
+      entityType: "Task",
+      projectId: task.projectId,
+      details: { status },
+    });
     res.status(200).json({
       success: true,
       task,
@@ -214,6 +319,23 @@ export const updateTaskPriority = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Task not found" });
     }
+    saveAuditLog({
+      tenantId,
+      actorUserId: req.user.userId,
+      action: "TASK_PRIORITY_CHANGED",
+      metadata: { taskId, priority },
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+    saveActivityLog({
+      tenantId,
+      userId: req.user.userId,
+      actionType: "TASK_PRIORITY_CHANGED",
+      entityId: taskId,
+      entityType: "Task",
+      projectId: task.projectId,
+      details: { priority },
+    });
     res.status(200).json({
       success: true,
       task,
@@ -239,6 +361,23 @@ export const updateTaskDueDate = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Task not found" });
     }
+    saveAuditLog({
+      tenantId,
+      actorUserId: req.user.userId,
+      action: "TASK_DUEDATE_CHANGED",
+      metadata: { taskId, dueDate },
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+    saveActivityLog({
+      tenantId,
+      userId: req.user.userId,
+      actionType: "TASK_DUEDATE_CHANGED",
+      entityId: taskId,
+      entityType: "Task",
+      projectId: task.projectId,
+      details: { dueDate },
+    });
     res.status(200).json({
       success: true,
       task,

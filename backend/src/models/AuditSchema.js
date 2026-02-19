@@ -1,19 +1,23 @@
 import mongoose from "mongoose";
 
-const AuditSchema = new mongoose.Schema({
+const AuditSchema = new mongoose.Schema(
+  {
     tenantId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Tenant",
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Tenant",
     },
 
     actorUserId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
     },
     action: String,
     metadata: Object,
-
-}, { timestamps: true });
+    ipAddress: String,
+    userAgent: String,
+  },
+  { timestamps: true },
+);
 
 AuditSchema.index({ tenantId: 1, createdAt: -1 });
 

@@ -3,8 +3,8 @@ import Message from "../models/MessageSchema.js";
 export const editMessage = async (req, res) => {
   try {
     const { messageId } = req.params;
-    const { content } = req.boby;
-    const { tenantId } = req.user.tenantId;
+    const { content } = req.body;
+    const { tenantId } = req.user;
     const message = await Message.findByIdAndUpdate(
       messageId,
       { content: content, isEdited: true },
@@ -56,7 +56,7 @@ export const unpinMessage = async (req, res) => {
 export const searchMessage = async (req, res) => {
   try {
     const { query } = req.query;
-    const { tenantId } = req.user.tenantId;
+    const { tenantId } = req.user;
     const messages = await Message.find({
       tenantId: tenantId,
       content: { $regex: query, $options: "i" },
@@ -70,7 +70,7 @@ export const searchMessage = async (req, res) => {
 export const replyMessage = async (req, res) => {
   try {
     const { messageId } = req.params;
-    const { content } = req.boby;
+    const { content } = req.body;
     const parentMessage = await Message.findById(messageId);
     if (!parentMessage) {
       return res.status(404).json({ message: "Message not found" });

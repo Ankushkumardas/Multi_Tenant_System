@@ -19,8 +19,10 @@ const activityLogSchema = new mongoose.Schema(
 
     entityId: mongoose.Schema.Types.ObjectId,
     entityType: String,
+    details: { type: Object },
+    projectId: { type: mongoose.Schema.Types.ObjectId, ref: "Project" },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 activityLogSchema.index({ tenantId: 1, createdAt: -1 });

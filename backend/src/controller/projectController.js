@@ -5,6 +5,7 @@ import ProjectMember from "../models/projectMembersSchema.js";
 import ChatRoom from "../models/ChatRoomSchema.js";
 import ChatParticipant from "../models/ChatUserSchema.js";
 import Section from "../models/SectionSchema.js";
+import { saveAuditLog, saveActivityLog } from "../service/auditLogger.js";
 
 export const createProject = async (req, res) => {
   try {
@@ -56,11 +57,27 @@ export const createProject = async (req, res) => {
       chatRoomId: chatRoom._id,
       userId: owner,
     });
-    //emit event,
     eventBus.emit("PROJECT_CREATED", {
       userId: owner,
       projectId: project._id,
       tenantId: user.tenantId,
+    });
+    saveAuditLog({
+      tenantId: user.tenantId,
+      actorUserId: owner,
+      action: "PROJECT_CREATED",
+      metadata: { projectId: project._id, name },
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+    saveActivityLog({
+      tenantId: user.tenantId,
+      userId: owner,
+      actionType: "PROJECT_CREATED",
+      entityId: project._id,
+      entityType: "Project",
+      projectId: project._id,
+      details: { name },
     });
     res.status(201).json({ message: "Project created successfully", project });
   } catch (error) {
@@ -98,7 +115,22 @@ export const archiveProject = async (req, res) => {
       projectId: project._id,
       tenantId: req.user.tenantId,
     });
-
+    saveAuditLog({
+      tenantId: req.user.tenantId,
+      actorUserId: req.user.userId,
+      action: "PROJECT_ARCHIVED",
+      metadata: { projectId },
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+    saveActivityLog({
+      tenantId: req.user.tenantId,
+      userId: req.user.userId,
+      actionType: "PROJECT_ARCHIVED",
+      entityId: project._id,
+      entityType: "Project",
+      projectId: project._id,
+    });
     res.status(200).json({ message: "Project archived successfully", project });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -118,6 +150,22 @@ export const toggelArchiver = async (req, res) => {
       userId: req.user.userId,
       projectId: project._id,
       tenantId: req.user.tenantId,
+    });
+    saveAuditLog({
+      tenantId: req.user.tenantId,
+      actorUserId: req.user.userId,
+      action: `PROJECT_${project.status}`,
+      metadata: { projectId },
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+    saveActivityLog({
+      tenantId: req.user.tenantId,
+      userId: req.user.userId,
+      actionType: `PROJECT_${project.status}`,
+      entityId: project._id,
+      entityType: "Project",
+      projectId: project._id,
     });
     res.status(200).json({ message: "Project toggled successfully", project });
   } catch (error) {
@@ -155,7 +203,24 @@ export const updateProject = async (req, res) => {
     eventBus.emit("PROJECT_UPDATED", {
       userId: owner,
       projectId: project._id,
-      tenantId: tenantId,
+      tenantId,
+    });
+    saveAuditLog({
+      tenantId,
+      actorUserId: owner,
+      action: "PROJECT_UPDATED",
+      metadata: { projectId, name, description },
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+    saveActivityLog({
+      tenantId,
+      userId: owner,
+      actionType: "PROJECT_UPDATED",
+      entityId: project._id,
+      entityType: "Project",
+      projectId: project._id,
+      details: { name, description },
     });
     res.status(200).json({ message: "Project updated successfully", project });
   } catch (error) {
@@ -184,7 +249,23 @@ export const deleteProject = async (req, res) => {
     eventBus.emit("PROJECT_DELETED", {
       userId: owner,
       projectId: project._id,
-      tenantId: tenantId,
+      tenantId,
+    });
+    saveAuditLog({
+      tenantId,
+      actorUserId: owner,
+      action: "PROJECT_DELETED",
+      metadata: { projectId },
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+    saveActivityLog({
+      tenantId,
+      userId: owner,
+      actionType: "PROJECT_DELETED",
+      entityId: project._id,
+      entityType: "Project",
+      projectId: project._id,
     });
     res.status(200).json({ message: "Project deleted successfully", project });
   } catch (error) {
@@ -251,7 +332,24 @@ export const addMemberToProject = async (req, res) => {
     eventBus.emit("MEMBER_ADDED", {
       userId: req.user.userId,
       projectId: project._id,
-      tenantId: tenantId,
+      tenantId,
+    });
+    saveAuditLog({
+      tenantId,
+      actorUserId: req.user.userId,
+      action: "MEMBER_ADDED",
+      metadata: { projectId, userId },
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+    saveActivityLog({
+      tenantId,
+      userId: req.user.userId,
+      actionType: "MEMBER_ADDED",
+      entityId: project._id,
+      entityType: "Project",
+      projectId: project._id,
+      details: { addedUserId: userId },
     });
     res
       .status(200)
@@ -313,7 +411,24 @@ export const removeMemberFromProject = async (req, res) => {
     eventBus.emit("MEMBER_REMOVED", {
       userId: req.user.userId,
       projectId: project._id,
-      tenantId: tenantId,
+      tenantId,
+    });
+    saveAuditLog({
+      tenantId,
+      actorUserId: req.user.userId,
+      action: "MEMBER_REMOVED",
+      metadata: { projectId, userId },
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+    saveActivityLog({
+      tenantId,
+      userId: req.user.userId,
+      actionType: "MEMBER_REMOVED",
+      entityId: project._id,
+      entityType: "Project",
+      projectId: project._id,
+      details: { removedUserId: userId },
     });
     res
       .status(200)
@@ -385,7 +500,24 @@ export const updateprojectMemberRole = async (req, res) => {
     eventBus.emit("MEMBER_ROLE_UPDATED", {
       userId: req.user.userId,
       projectId: project._id,
-      tenantId: tenantId,
+      tenantId,
+    });
+    saveAuditLog({
+      tenantId,
+      actorUserId: req.user.userId,
+      action: "MEMBER_ROLE_UPDATED",
+      metadata: { projectId, userId, role },
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+    saveActivityLog({
+      tenantId,
+      userId: req.user.userId,
+      actionType: "MEMBER_ROLE_UPDATED",
+      entityId: project._id,
+      entityType: "Project",
+      projectId: project._id,
+      details: { targetUserId: userId, role },
     });
     res
       .status(200)
@@ -441,7 +573,23 @@ export const Leaveproject = async (req, res) => {
     eventBus.emit("MEMBER_REMOVED", {
       userId: req.user.userId,
       projectId: project._id,
-      tenantId: tenantId,
+      tenantId,
+    });
+    saveAuditLog({
+      tenantId,
+      actorUserId: req.user.userId,
+      action: "PROJECT_LEFT",
+      metadata: { projectId },
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+    saveActivityLog({
+      tenantId,
+      userId: req.user.userId,
+      actionType: "PROJECT_LEFT",
+      entityId: project._id,
+      entityType: "Project",
+      projectId: project._id,
     });
     res
       .status(200)
