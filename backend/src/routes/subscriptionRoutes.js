@@ -8,7 +8,7 @@ import {
 import { ChangePlan } from "../controller/subscriptionController";
 import { toggleAutoRenew } from "../controller/subscriptionController";
 
-const router = express.Router();
+const router = express.Router({ mergeParams: true });
 
 router.get("/history", authMiddleware, getSubscriptionHistory);
 router.post("/change-plan", authMiddleware, ChangePlan);

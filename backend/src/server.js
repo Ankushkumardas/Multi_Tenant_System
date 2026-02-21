@@ -41,16 +41,21 @@ const server = http.createServer(app);
 //connectiing socket.io
 setupSocket(server);
 //routes
+// ── Global / non-tenant routes ──────────────────────────────────────────────
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
-app.use("/api/user", userRoutes);
-app.use("/api/notification", notificationRoutes);
-app.use("/api/subscription", subscriptionRoutes);
-app.use("/api/projects", projectRoutes);
-app.use("/api/chat", chatRoutes);
-app.use("/api/messages", messageRoutes);
-app.use("/api/activity", activityRoutes);
-app.use("/api/audit", auditRoutes);
+
+// ── Tenant-scoped routes  (slug appears in every URL) ───────────────────────
+// Example URL: /api/acme-corp/projects
+app.use("/api/:slug/user", userRoutes);
+app.use("/api/:slug/notification", notificationRoutes);
+app.use("/api/:slug/subscription", subscriptionRoutes);
+app.use("/api/:slug/projects", projectRoutes);
+app.use("/api/:slug/chat", chatRoutes);
+app.use("/api/:slug/messages", messageRoutes);
+app.use("/api/:slug/activity", activityRoutes);
+app.use("/api/:slug/audit", auditRoutes);
+
 connectRedis();
 connectDB();
 scheduleCronJobs();

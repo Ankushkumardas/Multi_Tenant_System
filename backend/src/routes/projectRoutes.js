@@ -42,7 +42,7 @@ import {
   updateComment,
 } from "../controller/taskCommentController.js";
 
-const router = express.Router();
+const router = express.Router({ mergeParams: true });
 
 router.post(
   "/",

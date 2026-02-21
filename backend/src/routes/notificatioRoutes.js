@@ -7,7 +7,7 @@ import {
 } from "../controller/notificationController.js";
 import { authenticate } from "../middleware/authMiddleware.js";
 
-const router = express.Router();
+const router = express.Router({ mergeParams: true });
 
 router.post("/mark-as-read/:id", authenticate, markAsRead);
 router.get("/unread-count", authenticate, getUnreadCount);

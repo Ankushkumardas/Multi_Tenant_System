@@ -10,7 +10,7 @@ import {
   getThreadMessage,
 } from "../controller/messageControllers.js";
 
-const router = express.Router();
+const router = express.Router({ mergeParams: true });
 
 router.use(authenticate);
 

@@ -9,7 +9,7 @@ import {
 } from "../controller/authController.js";
 import { rateLimiter } from "../middleware/ratelimiter.js";
 
-const router = express.Router();
+const router = express.Router({ mergeParams: true });
 
 router.get("/profile", authenticate, checkTenant, getProfile);
 

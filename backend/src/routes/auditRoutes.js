@@ -6,7 +6,7 @@ import {
   getAuditByUser,
 } from "../controller/auditController.js";
 
-const router = express.Router();
+const router = express.Router({ mergeParams: true });
 
 // All audit routes require authentication and must be OWNER or ADMIN
 router.use(authenticate);
