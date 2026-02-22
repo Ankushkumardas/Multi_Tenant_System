@@ -9,6 +9,18 @@ import {
 } from "../controller/authController.js";
 import { rateLimiter } from "../middleware/ratelimiter.js";
 
+// mergeParams are used to access params from teh parent route params in the child routes 
+// for example if we have a route /api/:slug/user and we want to access the slug in the child routes we use mergeParams: true
+// Parent Route:
+//    /projects/:projectId
+
+// Child Router:
+//    /tasks
+
+// Final URL:
+//    /projects/123/tasks
+// Without mergeParams → child can't see 123
+// With mergeParams → child can see 123
 const router = express.Router({ mergeParams: true });
 
 router.get("/profile", authenticate, checkTenant, getProfile);
