@@ -43,10 +43,10 @@ setupSocket(server);
 //routes
 // ── Global / non-tenant routes ──────────────────────────────────────────────
 app.use("/api/auth", authRoutes);
-app.use("/api/admin", adminRoutes);
 
 // ── Tenant-scoped routes  (slug appears in every URL) ───────────────────────
-// Example URL: /api/acme-corp/projects
+// Example URL: /api/:slug/admin/projects
+app.use("/api/:slug/admin", adminRoutes);
 app.use("/api/:slug/user", userRoutes);
 app.use("/api/:slug/notification", notificationRoutes);
 app.use("/api/:slug/subscription", subscriptionRoutes);

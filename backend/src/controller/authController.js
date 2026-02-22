@@ -442,9 +442,11 @@ export const login = async (req, res) => {
       message: "You have successfully logged in",
     });
 
+    const tenant = await Tenant.findById(user.tenantId);
+
     return res
       .status(200)
-      .json({ message: "Login successful", user, accessToken });
+      .json({ message: "Login successful", user, accessToken, tenant });
   } catch (error) {
     console.error("Login Error:", error);
     return res.status(500).json({ message: error.message });
@@ -694,6 +696,7 @@ export const getProfile = async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
+    const tenant = await Tenant.findOne(user.tenantId);
     await redisClient.set(
       `user:profile:${userId}`,
       JSON.stringify(user),
@@ -702,7 +705,11 @@ export const getProfile = async (req, res) => {
     );
     return res
       .status(200)
-      .json({ message: "Profile fetched successfully", user: user });
+      .json({
+        message: "Profile fetched successfully",
+        user: user,
+        tenant: tenant,
+      });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
