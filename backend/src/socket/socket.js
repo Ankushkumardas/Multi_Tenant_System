@@ -7,7 +7,7 @@ import { registerOnlineUsersHandler } from "./onlineUsers.js";
 import { registerTypingHanlder } from "./typingHandler.js";
 
 let io;
-export const setupSocket = (server) => {
+export const setupSocket = (server, app) => {
   io = new Server(server, {
     cors: {
       origin: "*",

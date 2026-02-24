@@ -4,27 +4,31 @@ import User from "../models/UserSchema.js";
 
 export const checkPermissions = (...permission) => {
   return async (req, res, next) => {
-    const { userId } = req.user;
+    const requiredPermissions = permission.flat();
     const userrole = req.user.role;
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
+
+    // Super-admin bypass
+    if (userrole === "SUPER_ADMIN") return next();
+
+    const allowedPermissions = rolePermissions[userrole];
+
+    if (!allowedPermissions) {
+      return res.status(403).json({ message: "Role permissions not defined" });
     }
-    if (user.status !== "ACTIVE") {
-      return res.status(403).json({ message: "user account is not active" });
+
+    // Check if user has "ALL" or every required permission
+    const hasAll = allowedPermissions.includes("ALL");
+    const hasRequired = requiredPermissions.every((p) =>
+      allowedPermissions.includes(p),
+    );
+
+    if (!hasAll && !hasRequired) {
+      return res.status(403).json({
+        message: "You have no permission to perform this action",
+        required: requiredPermissions,
+      });
     }
-    const permissions = rolePermissions[userrole];
-    if (!permissions) {
-      return res.status(403).json({ message: "Forbidden" });
-    }
-    if (!permissions.includes(permission)) {
-      return res
-        .status(403)
-        .json({ message: "You have no permission to perform this action" });
-    }
-    if (permission.includes("All")) {
-      return next();
-    }
+
     next();
   };
 };

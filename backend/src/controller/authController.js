@@ -165,9 +165,9 @@ export const registerOwner = async (req, res) => {
       emailVerification.save(),
       sendMail({
         to: email,
-        subject: "Verify your email",
-        text: `Click on the link to verify your email: http://localhost:3000/api/v1/auth/verify-email/${verificationToken}`,
-        html: `<a href="http://localhost:3000/api/v1/auth/verify-email/${verificationToken}">Verify Email</a>`,
+        subject: "Verify your email — FlowSpace",
+        text: `Click this link to verify your email: http://localhost:5174/verify-email?token=${verificationToken}`,
+        html: `<p>Hello ${name},</p><p>Click the button below to verify your email. This link expires in 10 minutes.</p><a href="http://localhost:5174/verify-email?token=${verificationToken}" style="background:#111;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;font-family:sans-serif;font-size:14px;display:inline-block;margin-top:8px">Verify Email</a>`,
       }),
       newUser.save(),
     ]);
@@ -178,6 +178,7 @@ export const registerOwner = async (req, res) => {
       tenant: tenant,
       subscription: subscription,
       plan: selectedPlan,
+      slug: tenant.slug,
     });
   } catch (error) {
     console.error("Register Error:", error);
@@ -187,7 +188,7 @@ export const registerOwner = async (req, res) => {
 
 export const verifyOwnerEmail = async (req, res) => {
   try {
-    const { token } = req.params;
+    const { token } = req.body;
 
     const emailVerification = await Email.findOne({ token });
 
@@ -242,9 +243,9 @@ export const resendVerificationEmail = async (req, res) => {
       emailVerification.save(),
       sendMail({
         to: email,
-        subject: "Verify your email",
-        text: `Click on the link to verify your email: http://localhost:3000/api/v1/auth/verify-email/${verificationToken}`,
-        html: `<a href="http://localhost:3000/api/v1/auth/verify-email/${verificationToken}">Verify Email</a>`,
+        subject: "Verify your email — FlowSpace",
+        text: `Click this link to verify your email: http://localhost:5174/verify-email?token=${verificationToken}`,
+        html: `<p>Click the button below to verify your email. This link expires in 10 minutes.</p><a href="http://localhost:5174/verify-email?token=${verificationToken}" style="background:#111;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;font-family:sans-serif;font-size:14px;display:inline-block;margin-top:8px">Verify Email</a>`,
       }),
     ]);
     res.status(200).json({ message: "Verification email sent successfully" });
@@ -321,9 +322,9 @@ export const sendInvite = async (req, res) => {
   // 6. Send email
   await sendMail({
     to: email,
-    subject: "You have been invited to join our tenant",
-    text: `Click on the link to join our tenant: http://localhost:3000/api/v1/auth/invite-mail/${token}`,
-    html: `<a href="http://localhost:3000/api/v1/auth/invite-mail/${token}">Join Tenant:${tenant.name}</a>`,
+    subject: `Invitation to join ${tenant.name} on FlowSpace`,
+    text: `Click on the link to join our workspace: http://localhost:5173/accept-invite?token=${token}`,
+    html: `<p>You have been invited to join <b>${tenant.name}</b> on FlowSpace.</p><a href="http://localhost:5173/accept-invite?token=${token}" style="background:#111;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;font-family:sans-serif;font-size:14px;display:inline-block;margin-top:8px">Join Workspace</a>`,
   });
 
   return res.json({ message: "Invite sent successfully" });
@@ -389,7 +390,7 @@ export const acceptInvite = async (req, res) => {
   }
 
   user.name = name;
-  user.password = hashpassword(password);
+  user.password = await hashpassword(password);
   user.status = "ACTIVE";
   user.isEmailVerified = true;
 
@@ -703,13 +704,11 @@ export const getProfile = async (req, res) => {
       "EX",
       3600,
     );
-    return res
-      .status(200)
-      .json({
-        message: "Profile fetched successfully",
-        user: user,
-        tenant: tenant,
-      });
+    return res.status(200).json({
+      message: "Profile fetched successfully",
+      user: user,
+      tenant: tenant,
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

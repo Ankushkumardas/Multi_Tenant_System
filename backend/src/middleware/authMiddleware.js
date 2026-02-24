@@ -20,6 +20,7 @@ export const authenticate = async (req, res, next) => {
       userId: user._id,
       tenantId: user.tenantId,
       role: user.role,
+      name: user.name,
     };
 
     next();

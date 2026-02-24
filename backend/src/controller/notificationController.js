@@ -7,7 +7,7 @@
 // Fast unread count	    ❌	            ✅
 // Scalable multi-server	❌	            ✅
 
-import Notification from "../models/notificationModel.js";
+import Notification from "../models/NotificationSchema.js";
 import { redisClient } from "../utils/redis.js";
 
 export const markAsRead = async (req, res) => {

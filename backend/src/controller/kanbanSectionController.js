@@ -97,7 +97,9 @@ export const getBoard = async (req, res) => {
     const sections = await Section.find({ projectId, tenantId }).sort({
       order: 1,
     });
-    const tasks = await Task.find({ projectId, tenantId }).sort({ order: 1 });
+    const tasks = await Task.find({ projectId, tenantId })
+      .sort({ order: 1 })
+      .populate("assignedTo", "name email");
     const board = sections.map((section) => ({
       section,
       tasks: tasks.filter(

@@ -4,9 +4,8 @@ export const queyClient = new QueryClient({
     defaultOptions: {
         queries: {
             refetchOnWindowFocus: false,
-            //    refetchOnMount:false,
-            //    refetchOnReconnect:false,
             retry: 1,
-        }
-    }
-})
+            // staleTime: 30_000,      // data stays fresh for 30s globally
+        },
+    },
+});

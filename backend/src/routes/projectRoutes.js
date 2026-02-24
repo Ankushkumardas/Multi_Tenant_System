@@ -48,8 +48,8 @@ router.post(
   "/",
   authenticate,
   checkTenant,
-  authorize(["OWNER"]),
-  checkPermissions(["CREATE_PROJECT"]),
+  authorize("OWNER", "ADMIN", "MANAGER"),
+  checkPermissions(["CREATE_PROJECT", "UPDATE_PROJECT"]),
   CheckUsageLimit("project"),
   createProject,
 );
@@ -57,7 +57,8 @@ router.get(
   "/",
   authenticate,
   checkTenant,
-  checkPermissions(["READ_PROJECT"]),
+  // authorize(["OWNER"]),
+  // checkPermissions(["READ_PROJECT", "CREATE_PROJECT"]),
   getMyProjects,
 );
 router.get("/:projectId", authenticate, checkTenant, getProjectById);
@@ -66,7 +67,7 @@ router.post(
   "/:projectId/archive",
   authenticate,
   checkTenant,
-  authorize(["OWNER", "ADMIN"]),
+  authorize("OWNER", "ADMIN"),
   archiveProject,
 );
 
@@ -74,7 +75,7 @@ router.post(
   "/:projectId/toggle-archive",
   authenticate,
   checkTenant,
-  authorize(["OWNER", "ADMIN"]),
+  authorize("OWNER", "ADMIN"),
   toggelArchiver,
 );
 
@@ -82,7 +83,7 @@ router.put(
   "/:projectId",
   authenticate,
   checkTenant,
-  authorize(["OWNER", "ADMIN"]),
+  authorize("OWNER", "ADMIN"),
   checkPermissions(["UPDATE_PROJECT"]),
   updateProject,
 );
@@ -91,7 +92,7 @@ router.delete(
   "/:projectId",
   authenticate,
   checkTenant,
-  authorize(["OWNER", "ADMIN"]),
+  authorize("OWNER", "ADMIN"),
   checkPermissions(["DELETE_PROJECT"]),
   deleteProject,
 );
@@ -142,7 +143,7 @@ router.post(
   "/:projectId/tasks",
   authenticate,
   checkTenant,
-  authorize(["OWNER", "ADMIN", "MANAGER"]),
+  authorize("OWNER", "ADMIN", "MANAGER"),
   checkPermissions(["CREATE_TASK"]),
   createTask,
 );
@@ -151,7 +152,7 @@ router.put(
   "/:projectId/tasks/:taskId",
   authenticate,
   checkTenant,
-  authorize(["OWNER", "ADMIN", "MANAGER"]),
+  authorize("OWNER", "ADMIN", "MANAGER"),
   checkPermissions(["UPDATE_TASK"]),
   updateTask,
 );
@@ -160,7 +161,7 @@ router.delete(
   "/:projectId/tasks/:taskId",
   authenticate,
   checkTenant,
-  authorize(["OWNER", "ADMIN", "MANAGER"]),
+  authorize("OWNER", "ADMIN", "MANAGER"),
   checkPermissions(["DELETE_TASK"]),
   deleteTask,
 );
@@ -177,7 +178,7 @@ router.post(
   "/:projectId/tasks/:taskId/assign",
   authenticate,
   checkTenant,
-  authorize(["OWNER", "ADMIN", "MANAGER"]),
+  authorize("OWNER", "ADMIN", "MANAGER"),
   checkPermissions(["ASSIGN_TASK"]),
   assignTask,
 );
@@ -186,7 +187,7 @@ router.put(
   "/:projectId/tasks/:taskId/status",
   authenticate,
   checkTenant,
-  authorize(["OWNER", "ADMIN", "MANAGER"]),
+  authorize("OWNER", "ADMIN", "MANAGER"),
   checkPermissions(["UPDATE_TASK_STATUS"]),
   updateTaskStatus,
 );
@@ -195,7 +196,8 @@ router.put(
   "/:projectId/tasks/:taskId/priority",
   authenticate,
   checkTenant,
-  authorize(["OWNER", "ADMIN", "MANAGER"]),
+  authorize("OWNER", "ADMIN", "MANAGER"),
+
   checkPermissions(["UPDATE_TASK_PRIORITY"]),
   updateTaskPriority,
 );
@@ -204,7 +206,8 @@ router.put(
   "/:projectId/tasks/:taskId/due-date",
   authenticate,
   checkTenant,
-  authorize(["OWNER", "ADMIN", "MANAGER"]),
+  authorize("OWNER", "ADMIN", "MANAGER"),
+
   checkPermissions(["UPDATE_TASK_DUE_DATE"]),
   updateTaskDueDate,
 );
@@ -214,7 +217,8 @@ router.post(
   "/:projectId/sections",
   authenticate,
   checkTenant,
-  authorize(["OWNER", "ADMIN", "MANAGER"]),
+  authorize("OWNER", "ADMIN", "MANAGER"),
+
   checkPermissions(["CREATE_SECTION"]),
   createSection,
 );
@@ -223,7 +227,8 @@ router.put(
   "/:projectId/sections/:sectionId",
   authenticate,
   checkTenant,
-  authorize(["OWNER", "ADMIN", "MANAGER"]),
+  authorize("OWNER", "ADMIN", "MANAGER"),
+
   checkPermissions(["UPDATE_SECTION"]),
   updateSection,
 );
@@ -232,7 +237,8 @@ router.delete(
   "/:projectId/sections/:sectionId",
   authenticate,
   checkTenant,
-  authorize(["OWNER", "ADMIN", "MANAGER"]),
+  authorize("OWNER", "ADMIN", "MANAGER"),
+
   checkPermissions(["DELETE_SECTION"]),
   deleteSection,
 );
@@ -241,7 +247,8 @@ router.put(
   "/:projectId/sections/order",
   authenticate,
   checkTenant,
-  authorize(["OWNER", "ADMIN", "MANAGER"]),
+  authorize("OWNER", "ADMIN", "MANAGER"),
+
   checkPermissions(["UPDATE_SECTION_ORDER"]),
   updateSectionOrder,
 );
@@ -267,7 +274,7 @@ router.post(
   "/:projectId/tasks/:taskId/comments",
   authenticate,
   checkTenant,
-  authorize(["OWNER", "ADMIN", "MANAGER", "MEMBER", "USER", "VIEWER"]),
+  authorize("OWNER", "ADMIN", "MANAGER", "MEMBER", "USER", "VIEWER"),
   checkPermissions(["CREATE_COMMENT"]),
   createComment,
 );
@@ -276,7 +283,7 @@ router.get(
   "/:projectId/tasks/:taskId/comments",
   authenticate,
   checkTenant,
-  authorize(["OWNER", "ADMIN", "MANAGER", "MEMBER", "USER", "VIEWER"]),
+  authorize("OWNER", "ADMIN", "MANAGER", "MEMBER", "USER", "VIEWER"),
   checkPermissions(["READ_COMMENT"]),
   getComments,
 );
@@ -285,7 +292,7 @@ router.delete(
   "/:projectId/tasks/:taskId/comments/:commentId",
   authenticate,
   checkTenant,
-  authorize(["OWNER", "ADMIN", "MANAGER", "MEMBER", "USER", "VIEWER"]),
+  authorize("OWNER", "ADMIN", "MANAGER", "MEMBER", "USER", "VIEWER"),
   checkPermissions(["DELETE_COMMENT"]),
   deleteComment,
 );
@@ -294,7 +301,7 @@ router.put(
   "/:projectId/tasks/:taskId/comments/:commentId",
   authenticate,
   checkTenant,
-  authorize(["OWNER", "ADMIN", "MANAGER", "MEMBER", "USER", "VIEWER"]),
+  authorize("OWNER", "ADMIN", "MANAGER", "MEMBER", "USER", "VIEWER"),
   checkPermissions(["UPDATE_COMMENT"]),
   updateComment,
 );

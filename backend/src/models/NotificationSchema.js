@@ -27,6 +27,7 @@ const NotificationSchema = new mongoose.Schema(
         "TASK",
         "CHAT",
         "INFO",
+        "LOGIN",
       ],
     },
     message: { type: String },

@@ -29,7 +29,7 @@ router.post(
   resendVerificationEmail,
 );
 
-router.post("/accept-invite", authenticate, checkTenant, acceptInvite);
+router.post("/accept-invite", acceptInvite);
 
 router.post(
   "/login",
@@ -48,7 +48,7 @@ router.post(
     keyPrefix: "refresh",
     limit: 5,
     windowsize: 60,
-    identifier: "userId",
+    identifier: "ip",
   }),
   refreshToken,
 );

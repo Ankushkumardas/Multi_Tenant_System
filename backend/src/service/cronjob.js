@@ -1,5 +1,5 @@
 import cron from "node-cron";
-import { SubscriptionExpiryReminder } from "../controller/subscriptionController";
+import { SubscriptionExpiryReminder } from "../controller/subscriptionController.js";
 
 // → Every day at 9:00 AM
 export const scheduleCronJobs = () => {

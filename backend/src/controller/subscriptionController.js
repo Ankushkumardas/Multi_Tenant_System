@@ -1,9 +1,9 @@
-import Plan from "../models/PlanSchema";
-import TenantSubscription from "../models/TenantSubscriptionSchema";
-import Tenant from "../models/TenantSchema";
-import User from "../models/UserSchema";
-import { createNotification } from "../service/notification";
-import { redisClient } from "../utils/redis";
+import Plan from "../models/PlanSchema.js";
+import TenantSubscription from "../models/TenantSubscriptionSchema.js";
+import Tenant from "../models/TenantSchema.js";
+import User from "../models/UserSchema.js";
+import { createNotification } from "../service/notification.js";
+import { redisClient } from "../utils/redis.js";
 
 //to upgrade or downgrade the plan
 export const ChangePlan = async (req, res) => {

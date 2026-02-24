@@ -13,7 +13,7 @@ router.post(
   "/send-invite",
   authenticate,
   checkTenant,
-  authorize(["OWNER", "ADMIN"]),
+  authorize("OWNER", "ADMIN"),
   sendInvite,
 );
 
@@ -21,14 +21,14 @@ router.put(
   "/update-role",
   authenticate,
   checkTenant,
-  authorize(["OWNER", "ADMIN"]),
+  authorize("OWNER", "ADMIN"),
   updateUserRole,
 );
 
 router.post(
   "/force-logout/:userId",
   authenticate,
-  authorize(["OWNER", "ADMIN"]),
+  authorize("OWNER", "ADMIN"),
   checkTenant,
   forceLogoutuser,
 );

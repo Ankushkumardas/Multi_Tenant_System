@@ -1,5 +1,5 @@
-import { redisClient } from "../utils/redis";
-import Notification from "../models/NotificationSchema";
+import { redisClient } from "../utils/redis.js";
+import Notification from "../models/NotificationSchema.js";
 
 export const createNotification = async (
   req,

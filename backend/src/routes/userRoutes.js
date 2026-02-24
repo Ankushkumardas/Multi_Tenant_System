@@ -9,7 +9,7 @@ import {
 } from "../controller/authController.js";
 import { rateLimiter } from "../middleware/ratelimiter.js";
 
-// mergeParams are used to access params from teh parent route params in the child routes 
+// mergeParams are used to access params from teh parent route params in the child routes
 // for example if we have a route /api/:slug/user and we want to access the slug in the child routes we use mergeParams: true
 // Parent Route:
 //    /projects/:projectId
@@ -31,14 +31,14 @@ router.get("/sessions", authenticate, checkTenant, getActiveSessions);
 
 router.post(
   "/change-password",
+  authenticate,
+  checkTenant,
   rateLimiter({
     keyPrefix: "change-password",
     limit: 3,
     windowsize: 60,
     identifier: "userId",
   }),
-  authenticate,
-  checkTenant,
   changePasword,
 );
 

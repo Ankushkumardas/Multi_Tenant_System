@@ -17,6 +17,9 @@ export const rateLimiter = ({
         id = req.body.email;
       }
       if (identifier === "userId") {
+        if (!req.user) {
+          return res.status(401).json({ message: "User not authenticated" });
+        }
         id = req.user.userId;
       }
       if (!id) {
