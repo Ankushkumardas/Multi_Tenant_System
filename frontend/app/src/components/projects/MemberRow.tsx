@@ -38,7 +38,7 @@ export const MemberRow = ({ member, projectId, slug, qc, isOwnerOrAdmin }: Membe
     const isOwner = member.role === "OWNER";
 
     return (
-        <div className="group flex items-center justify-between p-4 bg-white hover:bg-gray-50/50 transition-all rounded-2xl border border-transparent hover:border-gray-100">
+        <div className="group flex items-center justify-between bg-white hover:bg-gray-50/50 transition-all rounded-2xl border border-transparent hover:border-gray-100">
             <div className="flex items-center gap-4">
                 <div className="w-10 h-10 rounded-full bg-gray-900 flex items-center justify-center text-[12px] font-medium text-white uppercase shadow-sm">
                     {name[0]}

@@ -29,6 +29,12 @@ const ChatPage = () => {
     const [editingMsg, setEditingMsg] = useState<any>(null);
     const [editContent, setEditContent] = useState("");
 
+    // Search
+    const [searchQuery, setSearchQuery] = useState("");
+    const [searchResults, setSearchResults] = useState<any[]>([]);
+    const [isSearching, setIsSearching] = useState(false);
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
+
     // Mention state
     const { data: teamData, isLoading: membersLoading } = useWorkspaceMembers();
     const members = teamData?.users ?? [];
@@ -254,6 +260,34 @@ const ChatPage = () => {
         }
     };
 
+    const handleTogglePin = async (msg: any) => {
+        try {
+            if (msg.isPinned) {
+                await api.put(`/${slug}/messages/${msg._id}/unpin`);
+            } else {
+                await api.put(`/${slug}/messages/${msg._id}/pin`);
+            }
+            // Manually update state as backend doesn't broadcast pin/unpin events
+            setMessages(prev => prev.map(m => m._id === msg._id ? { ...m, isPinned: !m.isPinned } : m));
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const handleSearch = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!searchQuery.trim()) return;
+        setIsSearching(true);
+        try {
+            const res = await api.get(`/${slug}/messages/search?query=${searchQuery}`);
+            setSearchResults(res.data.messages || []);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setIsSearching(false);
+        }
+    };
+
     const insertMention = (memberName: string) => {
         const words = newMsg.split(" ");
         words.pop();
@@ -456,10 +490,14 @@ const ChatPage = () => {
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <button className="w-9 h-9 rounded-full border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-900 transition-colors">
+                                    <button
+                                        onClick={() => setIsSearchOpen(true)}
+                                        className="w-9 h-9 rounded-full border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-900 hover:bg-gray-50 transition-colors"
+                                        title="Search Transmissions"
+                                    >
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
                                     </button>
-                                    <button className="w-9 h-9 rounded-full border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-900 transition-colors">
+                                    <button className="w-9 h-9 rounded-full border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-900 hover:bg-gray-50 transition-colors">
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z" /></svg>
                                     </button>
                                 </div>
@@ -525,6 +563,11 @@ const ChatPage = () => {
                                                                     {msg.isEdited && <span className="text-[9px] opacity-40 ml-1.5 font-medium tracking-wide">(edited)</span>}
                                                                 </>
                                                             )}
+                                                            {msg.isPinned && (
+                                                                <div className="absolute -top-2.5 -right-2.5 text-orange-500 bg-orange-50 p-1 rounded-full shadow-sm border border-orange-100 z-10" title="Pinned">
+                                                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M16,12V4H17V2H7V4H8V12L6,14V16H11.2V22H12.8V16H18V14L16,12Z" /></svg>
+                                                                </div>
+                                                            )}
 
                                                             {/* Hover Actions */}
                                                             <div className={`absolute top-0 ${isSender ? "right-full mr-2" : "left-full ml-2"} opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 bg-white border border-gray-100 p-1 rounded-lg shadow-sm w-max z-30`}>
@@ -554,6 +597,9 @@ const ChatPage = () => {
                                                                 </button>
                                                                 <button onClick={() => fetchThread(msg)} className="p-1 hover:bg-gray-50 rounded text-gray-400 hover:text-purple-600 transition-colors" title="Threads">
                                                                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+                                                                </button>
+                                                                <button onClick={() => handleTogglePin(msg)} className="p-1 hover:bg-gray-50 rounded text-gray-400 hover:text-orange-500 transition-colors" title={msg.isPinned ? "Unpin Focus" : "Pin Message"}>
+                                                                    <svg className="w-3.5 h-3.5" fill={msg.isPinned ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
                                                                 </button>
                                                             </div>
                                                         </div>
@@ -735,6 +781,71 @@ const ChatPage = () => {
                                         <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" /></svg>
                                     </button>
                                 </div>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* ── Search Sidebar (Sidepane) ── */}
+                <AnimatePresence>
+                    {isSearchOpen && (
+                        <motion.div
+                            initial={{ x: 400 }}
+                            animate={{ x: 0 }}
+                            exit={{ x: 400 }}
+                            className="absolute right-0 top-0 bottom-0 w-80 border-l border-gray-100 flex flex-col bg-white shadow-2xl z-20"
+                        >
+                            <div className="p-6 border-b border-gray-50 bg-gray-50/50">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h2 className="text-[15px] font-medium text-gray-900 tracking-tight">Search</h2>
+                                    <button
+                                        onClick={() => { setIsSearchOpen(false); setSearchQuery(""); setSearchResults([]); }}
+                                        className="p-1.5 hover:bg-white rounded-full text-gray-400 transition-colors"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                    </button>
+                                </div>
+                                <form onSubmit={handleSearch} className="relative">
+                                    <input
+                                        type="text"
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        placeholder="Search all conversations..."
+                                        className="w-full h-10 pl-9 pr-3 bg-white border border-gray-200 rounded-xl text-[12px] focus:ring-1 focus:ring-blue-500 outline-none transition-all"
+                                    />
+                                    <svg className="w-4 h-4 text-gray-400 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                                    <button type="submit" className="hidden" />
+                                </form>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-white">
+                                {isSearching ? (
+                                    <p className="text-[12px] text-gray-400 text-center py-6">Searching...</p>
+                                ) : searchResults.length === 0 && searchQuery ? (
+                                    <p className="text-[12px] text-gray-400 text-center py-6">No matches found.</p>
+                                ) : (
+                                    searchResults.map((res: any) => (
+                                        <button
+                                            key={res._id}
+                                            className="w-full text-left p-3 rounded-xl hover:bg-gray-50 border border-transparent hover:border-gray-100 transition-all group block"
+                                            onClick={() => {
+                                                if (res.chatRoomId !== activeRoom?._id) {
+                                                    const targetRoom = rooms.find(r => r._id === res.chatRoomId);
+                                                    if (targetRoom) {
+                                                        setActiveRoom(targetRoom);
+                                                        fetchMessages(targetRoom._id);
+                                                    }
+                                                }
+                                                // Could scroll to message if in same room, simplify for now
+                                            }}
+                                        >
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="text-[12px] font-bold text-gray-900">{res.senderId?.name || "System"}</span>
+                                                <span className="text-[10px] text-gray-400">{new Date(res.createdAt).toLocaleDateString()}</span>
+                                            </div>
+                                            <p className="text-[12px] text-gray-600 line-clamp-2 leading-relaxed">{res.content}</p>
+                                        </button>
+                                    ))
+                                )}
                             </div>
                         </motion.div>
                     )}

@@ -10,7 +10,6 @@ import ProjectPage from './pages/projects/ProjectPage';
 import ProjectBoard from './pages/projects/ProjectBoard';
 import ProjectTasks from './pages/projects/ProjectTasks';
 import ProjectMembers from './pages/projects/ProjectMembers';
-import ProjectSettings from './pages/projects/ProjectSettings';
 import ActivityPage from './pages/activity/ActivityPage';
 import AuditPage from './pages/audit/AuditPage';
 import SubscriptionPage from './pages/subscription/SubscriptionPage';
@@ -52,7 +51,6 @@ const App = () => {
               <Route path="board" element={<ProjectBoard />} />
               <Route path="tasks" element={<ProjectTasks />} />
               <Route path="members" element={<ProjectMembers />} />
-              <Route path="settings" element={<ProjectSettings />} />
             </Route>
 
             {/* Activity & Audit & Chat & Notifications */}
