@@ -427,6 +427,18 @@ export const login = async (req, res) => {
       60 * 60 * 24 * 7,
     ); //7days
 
+    // Store session metadata (IP, UA, etc.)
+    await redisClient.set(
+      `sessionMeta:user:${user._id}:${sessionId}`,
+      JSON.stringify({
+        ip: req.ip || req.headers["x-forwarded-for"] || "127.0.0.1",
+        userAgent: req.headers["user-agent"] || "Unknown Device",
+        loginAt: Date.now(),
+      }),
+      "EX",
+      60 * 60 * 24 * 7,
+    );
+
     //  Track sessions per user
     await redisClient.sadd(`sessions:user:${user._id}`, sessionId);
     //  DB fallback (last session only)
@@ -743,11 +755,19 @@ export const getActiveSessions = async (req, res) => {
     const sessions = await redisClient.smembers(`sessions:user:${userId}`);
     let data = [];
     for (const session of sessions) {
-      const token = await redisClient.get(
-        `refreshToken:user:${userId}:${session}`,
-      );
+      const [token, meta] = await Promise.all([
+        redisClient.get(`refreshToken:user:${userId}:${session}`),
+        redisClient.get(`sessionMeta:user:${userId}:${session}`),
+      ]);
+
       if (token) {
-        data.push({ sessionId: session, active: true });
+        data.push({
+          sessionId: session,
+          active: true,
+          meta: meta
+            ? JSON.parse(meta)
+            : { ip: "Unknown", userAgent: "Unknown", loginAt: Date.now() },
+        });
       }
     }
     return res.status(200).json({

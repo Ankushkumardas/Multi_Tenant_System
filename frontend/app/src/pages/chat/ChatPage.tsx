@@ -180,7 +180,7 @@ const ChatPage = () => {
                                 <button
                                     key={room._id}
                                     onClick={() => { setActiveRoom(room); fetchMessages(room._id); }}
-                                    className={`w-full flex items-center gap-3 p-4 rounded-2xl transition-all ${activeRoom?._id === room._id ? "bg-white shadow-md border border-gray-100" : "hover:bg-gray-100/50 text-gray-500 hover:text-gray-900"}`}
+                                    className={`w-full flex items-center gap-3 p-2 rounded-2xl transition-all ${activeRoom?._id === room._id ? "bg-white shadow-md border border-gray-100" : "hover:bg-gray-100/50 text-gray-500 hover:text-gray-900"}`}
                                 >
                                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-[13px] font-medium ${activeRoom?._id === room._id ? "bg-gray-900 text-white" : "bg-gray-200 text-gray-500"}`}>
                                         {room.name?.[0]?.toUpperCase() ?? "C"}

@@ -3,9 +3,10 @@ import { motion } from "framer-motion";
 interface ProjectCardProps {
     project: any;
     onClick: () => void;
+    onEdit?: (e: React.MouseEvent) => void;
 }
 
-export const ProjectCard = ({ project, onClick }: ProjectCardProps) => {
+export const ProjectCard = ({ project, onClick, onEdit }: ProjectCardProps) => {
     // Generate a consistent pseudo-random gradient based on project ID
     // const gradients = [
     //     "from-blue-600 to-indigo-700",
@@ -19,8 +20,8 @@ export const ProjectCard = ({ project, onClick }: ProjectCardProps) => {
     // const gradient = gradients[gradientIdx];
 
     const completedTasks = project.completedTasks ?? 0;
-    const totalTasks = project.totalTasks ?? 10;
-    const progress = Math.min(Math.round((completedTasks / totalTasks) * 100), 100);
+    const totalTasks = project.totalTasks ?? 0;
+    const progress = totalTasks > 0 ? Math.min(Math.round((completedTasks / totalTasks) * 100), 100) : 0;
 
     const formatDate = (date: string) => {
         if (!date) return "Just now";
@@ -50,6 +51,17 @@ export const ProjectCard = ({ project, onClick }: ProjectCardProps) => {
                         <h3 className="text-[15px] font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">{project.name}</h3>
                         <p className="text-[11px] text-gray-400 mt-0.5">Created {formatDate(project.createdAt)}</p>
                     </div>
+                    {onEdit && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onEdit(e);
+                            }}
+                            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                        </button>
+                    )}
                 </div>
 
                 <div className="flex items-center gap-2 text-[12px] text-gray-500">

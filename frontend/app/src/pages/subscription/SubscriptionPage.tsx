@@ -53,7 +53,7 @@ const SubscriptionPage = () => {
     const { data: membersData, isLoading: membersLoading } = useWorkspaceMembers();
 
     const [activeTab, setActiveTab] = useState("Overview");
-    const tabs = ["Overview", "Plans & Tiers", "Billing History"];
+    const tabs = ["Overview", "Billing History"];
 
     // ── mutations ──────────────────────────────────────────────────────────────
     const toggleAutoRenewMutation = useMutation({
@@ -130,13 +130,16 @@ const SubscriptionPage = () => {
     return (
         <div className="w-full">
             {/* ── Page header ── */}
-            <div className="flex items-start justify-between mb-6">
+            <div className="flex items-start justify-between mb-4">
                 <div>
-                    <h1 className="text-xl font-bold text-gray-900 tracking-tight">Subscription & Billing</h1>
-                    <p className="text-sm text-gray-400 mt-0.5">Manage your plan, billing cycle, and payment details.</p>
+                    <h1 className="text-lg font-bold text-gray-900 tracking-tight">Subscription & Billing</h1>
+                    <p className="text-xs text-gray-400 mt-0.5">Manage your plan, billing cycle, and payment details.</p>
                 </div>
                 <button
-                    onClick={() => setActiveTab("Plans & Tiers")}
+                    onClick={() => {
+                        const el = document.getElementById('plans-comparison');
+                        el?.scrollIntoView({ behavior: 'smooth' });
+                    }}
                     className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors"
                 >
                     Upgrade Plan
@@ -144,14 +147,14 @@ const SubscriptionPage = () => {
             </div>
 
             {/* ── Tabs ── */}
-            <div className="flex gap-6 border-b border-gray-100 mb-6">
+            <div className="flex gap-6 border-b border-gray-100 mb-4">
                 {tabs.map((t) => (
                     <button
                         key={t}
                         onClick={() => setActiveTab(t)}
-                        className={`pb-3 text-sm font-semibold border-b-2 -mb-px transition-colors ${activeTab === t
-                                ? "border-blue-600 text-blue-600"
-                                : "border-transparent text-gray-400 hover:text-gray-600"
+                        className={`pb-2.5 text-xs font-semibold border-b-2 -mb-px transition-colors ${activeTab === t
+                            ? "border-blue-600 text-blue-600"
+                            : "border-transparent text-gray-400 hover:text-gray-600"
                             }`}
                     >
                         {t}
@@ -161,59 +164,62 @@ const SubscriptionPage = () => {
 
             {/* ══════════════════════  OVERVIEW TAB  ══════════════════════════ */}
             {activeTab === "Overview" && (
-                <div className="space-y-5">
+                <div className="space-y-6">
                     {/* Top row: plan card + usage */}
-                    <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+                    <div className="grid grid-cols-1 lg:grid-cols-7
+                     gap-4">
                         {/* Current plan card */}
-                        <div className="lg:col-span-2 bg-gray-950 rounded-2xl p-6 text-white relative overflow-hidden">
-                            <div className={`absolute top-5 right-5 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full border ${statusColor[planStatus] ?? "bg-gray-100 text-gray-500 border-gray-200"}`}>
-                                {planStatus}
-                            </div>
+                        <div className="lg:col-span-2 relative p-[1.5px] rounded-2xl bg-linear-to-br from-blue-600 via-violet-600 to-emerald-500 shadow-lg overflow-hidden group">
+                            <div className="bg-white rounded-[14.5px] p-5 relative z-10">
+                                <div className={`absolute top-4 right-4 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${statusColor[planStatus] ?? "bg-gray-100 text-gray-500 border-gray-200"}`}>
+                                    {planStatus}
+                                </div>
 
-                            <p className="text-[10px] text-gray-400 uppercase tracking-widest font-semibold mb-1">Current Plan</p>
-                            <h2 className="text-2xl font-extrabold mb-1">{planName}</h2>
-                            <p className="text-2xl font-light text-gray-300 mb-6">
-                                ${planPrice}<span className="text-sm text-gray-500">/mo</span>
-                            </p>
+                                <p className="text-[9px] text-gray-400 uppercase tracking-widest font-bold mb-0.5">Current Plan</p>
+                                <h2 className="text-xl font-black text-gray-900 mb-0.5 leading-tight">{planName}</h2>
+                                <p className="text-xl font-semibold text-gray-900 mb-4">
+                                    ${planPrice}<span className="text-xs text-gray-400 font-normal">/mo</span>
+                                </p>
 
-                            <div className="space-y-3 text-sm mb-6">
-                                <div className="flex justify-between">
-                                    <span className="text-gray-400">Billing cycle</span>
-                                    <span className="font-medium capitalize">{billingCycle.replace("_", " ").toLowerCase()}</span>
+                                <div className="space-y-2.5 text-xs mb-4">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-gray-500 font-medium">Billing cycle</span>
+                                        <span className="font-bold text-gray-900 capitalize px-2 py-0.5 bg-gray-50 rounded-md border border-gray-100">{billingCycle.replace("_", " ").toLowerCase()}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-gray-600">
+                                        <span className="font-medium">Start date</span>
+                                        <span className="font-bold text-gray-900">{fmt(subscription?.startDate)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-gray-600">
+                                        <span className="font-medium">Next payment</span>
+                                        <span className="font-bold text-blue-600 px-2 py-0.5 bg-blue-50 rounded-md border border-blue-100">{fmt(subscription?.endDate)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-gray-600">
+                                        <span className="font-medium">Payment via</span>
+                                        <span className="font-bold text-gray-900">{paymentProvider}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center pt-1">
+                                        <span className="text-gray-500 font-medium">Auto-renew</span>
+                                        <button
+                                            onClick={() => toggleAutoRenewMutation.mutate()}
+                                            disabled={toggleAutoRenewMutation.isPending}
+                                            className={`w-9 h-5 rounded-full relative transition-colors ${autoRenew ? "bg-blue-600" : "bg-gray-300"}`}
+                                        >
+                                            <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${autoRenew ? "translate-x-4.5" : "translate-x-0.5"}`} />
+                                        </button>
+                                    </div>
                                 </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-400">Start date</span>
-                                    <span className="font-medium">{fmt(subscription?.startDate)}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-400">Next payment</span>
-                                    <span className="font-medium">{fmt(subscription?.endDate)}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-400">Payment via</span>
-                                    <span className="font-medium">{paymentProvider}</span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <span className="text-gray-400">Auto-renew</span>
+
+                                {planStatus === "EXPIRED" && (
                                     <button
-                                        onClick={() => toggleAutoRenewMutation.mutate()}
-                                        disabled={toggleAutoRenewMutation.isPending}
-                                        className={`w-10 h-5 rounded-full relative transition-colors ${autoRenew ? "bg-blue-500" : "bg-gray-600"}`}
+                                        onClick={() => renewMutation.mutate()}
+                                        disabled={renewMutation.isPending}
+                                        className="w-full py-2.5 bg-gray-900 text-white rounded-xl text-sm font-bold hover:bg-gray-800 transition-colors disabled:opacity-60 shadow-lg shadow-gray-200"
                                     >
-                                        <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${autoRenew ? "translate-x-5" : "translate-x-0.5"}`} />
+                                        {renewMutation.isPending ? "Renewing…" : "Renew Subscription"}
                                     </button>
-                                </div>
+                                )}
                             </div>
-
-                            {planStatus === "EXPIRED" && (
-                                <button
-                                    onClick={() => renewMutation.mutate()}
-                                    disabled={renewMutation.isPending}
-                                    className="w-full py-2.5 bg-white text-gray-900 rounded-xl text-sm font-bold hover:bg-gray-100 transition-colors disabled:opacity-60"
-                                >
-                                    {renewMutation.isPending ? "Renewing…" : "Renew Subscription"}
-                                </button>
-                            )}
                         </div>
 
                         {/* Usage + billing cycle */}
@@ -221,7 +227,7 @@ const SubscriptionPage = () => {
                             {/* Usage meters */}
                             <div className="grid grid-cols-2 gap-4">
                                 {/* Projects */}
-                                <div className="bg-white border border-gray-100 rounded-2xl p-5">
+                                <div className="bg-white border border-gray-100 rounded-2xl p-4">
                                     <div className="flex justify-between items-center mb-3">
                                         <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Projects</p>
                                         <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -239,7 +245,7 @@ const SubscriptionPage = () => {
                                 </div>
 
                                 {/* Members */}
-                                <div className="bg-white border border-gray-100 rounded-2xl p-5">
+                                <div className="bg-white border border-gray-100 rounded-2xl p-4">
                                     <div className="flex justify-between items-center mb-3">
                                         <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Members</p>
                                         <svg className="w-4 h-4 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -267,8 +273,8 @@ const SubscriptionPage = () => {
                                             onClick={() => updateCycleMutation.mutate(c)}
                                             disabled={billingCycle === c || updateCycleMutation.isPending}
                                             className={`px-4 py-1.5 rounded-full text-xs font-semibold border transition-all ${billingCycle === c
-                                                    ? "bg-gray-900 text-white border-gray-900"
-                                                    : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"
+                                                ? "bg-gray-900 text-white border-gray-900"
+                                                : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"
                                                 }`}
                                         >
                                             {c === "HALF_YEARLY" ? "Half-Yearly" : c.charAt(0) + c.slice(1).toLowerCase()}
@@ -282,7 +288,7 @@ const SubscriptionPage = () => {
 
                             {/* Plan features */}
                             {planObj?.features && (
-                                <div className="bg-white border border-gray-100 rounded-2xl p-5">
+                                <div className="bg-white border border-gray-100 rounded-2xl p-4">
                                     <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3">Plan Features</p>
                                     <div className="grid grid-cols-2 gap-2">
                                         {[
@@ -306,170 +312,129 @@ const SubscriptionPage = () => {
                         </div>
                     </div>
 
-                    {/* Billing History Preview */}
-                    <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden">
-                        <div className="flex justify-between items-center px-5 py-4 border-b border-gray-50">
-                            <h3 className="text-sm font-bold text-gray-900">Recent Billing History</h3>
-                            <button onClick={() => setActiveTab("Billing History")} className="text-[11px] font-bold text-blue-600 hover:text-blue-700 uppercase tracking-wider">
-                                View All
-                            </button>
+                    {/* Plans Comparison Section */}
+                    <div id="plans-comparison" className="pt-6 border-t border-gray-100">
+                        <div className="mb-4">
+                            <h3 className="text-base font-bold text-gray-900 tracking-tight">Available Plans & Tiers</h3>
+                            <p className="text-xs text-gray-500">Compare plans and switch at any time.</p>
                         </div>
-                        {history.length === 0 ? (
-                            <div className="px-5 py-10 text-center text-sm text-gray-400">No billing history yet.</div>
+
+                        {!plansData || plansData.length === 0 ? (
+                            <p className="text-xs text-gray-400 italic">No plans available.</p>
                         ) : (
-                            <table className="w-full text-sm text-left">
-                                <thead>
-                                    <tr className="border-b border-gray-50">
-                                        <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Plan</th>
-                                        <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Period</th>
-                                        <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Action</th>
-                                        <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-right">Amount</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-50">
-                                    {history.slice(-5).reverse().map((h: any, i: number) => (
-                                        <tr key={i} className="hover:bg-gray-50/50 transition-colors">
-                                            <td className="px-5 py-3.5 font-medium text-gray-900">{h.planId?.name ?? planName}</td>
-                                            <td className="px-5 py-3.5 text-gray-500">
-                                                {fmt(h.startDate)} → {fmt(h.endDate)}
-                                            </td>
-                                            <td className="px-5 py-3.5">
-                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${actionColor[h.action] ?? "bg-gray-100 text-gray-500"}`}>
-                                                    {actionLabel[h.action] ?? h.action}
-                                                </span>
-                                            </td>
-                                            <td className="px-5 py-3.5 font-bold text-gray-900 text-right">
-                                                ${h.planId?.price ?? planPrice}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                                {[...plansData].sort((a: any, b: any) => a.price - b.price).map((p: any, idx: number) => {
+                                    const isCurrent = planObj?._id === p._id;
+                                    const isMiddle = idx === 1;
+                                    return (
+                                        <div
+                                            key={p._id}
+                                            className={`rounded-2xl flex flex-col relative transition-all duration-300 ${isCurrent
+                                                ? "border-2 border-blue-600 shadow-lg scale-[1.01] z-20"
+                                                : "border border-gray-100 hover:border-gray-300 hover:shadow-sm"
+                                                } bg-white`}
+                                        >
+                                            {isCurrent && (
+                                                <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-3 py-1 bg-blue-600 text-white text-[9px] font-black uppercase tracking-widest rounded-full shadow-md shadow-blue-200">
+                                                    Current Plan
+                                                </div>
+                                            )}
+                                            {!isCurrent && isMiddle && (
+                                                <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-3 py-1 bg-gray-900 text-white text-[9px] font-black uppercase tracking-widest rounded-full shadow-md shadow-gray-200">
+                                                    Popular Choice
+                                                </div>
+                                            )}
+                                            <div className="p-5 flex-1">
+                                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3">{p.name}</p>
+                                                <div className="flex items-baseline gap-1 mb-4">
+                                                    <span className="text-3xl font-black text-gray-900 tracking-tight">${p.price ?? 0}</span>
+                                                    <span className="text-xs text-gray-400 font-bold">/mo</span>
+                                                </div>
+                                                <div className="space-y-2.5 text-[12px] text-gray-600 font-medium">
+                                                    <div className="flex items-center gap-2.5">
+                                                        <div className="w-4.5 h-4.5 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100"><CheckIcon /></div>
+                                                        <span className="text-gray-900 font-bold">{(p.limits?.maxProjects ?? 0) > 0 ? p.limits.maxProjects : "Unlimited"}</span> Projects
+                                                    </div>
+                                                    <div className="flex items-center gap-2.5">
+                                                        <div className="w-4.5 h-4.5 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100"><CheckIcon /></div>
+                                                        <span className="text-gray-900 font-bold">{(p.limits?.maxUsers ?? 0) > 0 ? p.limits.maxUsers : "Unlimited"}</span> Members
+                                                    </div>
+                                                    {[
+                                                        { key: "chat", label: "Direct Chat" },
+                                                        { key: "kanban", label: "Kanban Boards" },
+                                                        { key: "analytics", label: "Analytics" },
+                                                        { key: "notifications", label: "Notifications" },
+                                                    ].map(({ key, label }) => (
+                                                        <div key={key} className={`flex items-center gap-2.5 ${!p.features?.[key] ? "opacity-30" : ""}`}>
+                                                            <div className={`w-4.5 h-4.5 rounded-full flex items-center justify-center shrink-0 border ${p.features?.[key] ? "bg-green-50 text-green-600 border-green-100" : "bg-gray-50 text-gray-300 border-gray-100"}`}>
+                                                                <CheckIcon />
+                                                            </div>
+                                                            {label}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            <div className="px-5 pb-5">
+                                                <button
+                                                    onClick={() => !isCurrent && handleSwitchPlan(p._id)}
+                                                    disabled={isCurrent}
+                                                    className={`w-full py-2.5 rounded-xl text-[11px] font-black tracking-wide uppercase transition-all ${isCurrent
+                                                        ? "bg-gray-50 text-gray-400 cursor-default border border-gray-100"
+                                                        : isMiddle
+                                                            ? "bg-gray-900 text-white hover:bg-gray-800 shadow-md shadow-gray-200"
+                                                            : "border-2 border-gray-900 text-gray-900 hover:bg-gray-900 hover:text-white"
+                                                        }`}
+                                                >
+                                                    {isCurrent ? "Active" : `Upgrade`}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         )}
                     </div>
-                </div>
-            )}
 
-            {/* ══════════════════════  PLANS & TIERS TAB  ══════════════════════ */}
-            {activeTab === "Plans & Tiers" && (
-                <div>
-                    <p className="text-sm text-gray-500 mb-6">Compare plans and switch at any time. Changes apply from the next billing period.</p>
-                    {!plansData || plansData.length === 0 ? (
-                        <p className="text-sm text-gray-400">No plans available.</p>
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                            {[...plansData].sort((a: any, b: any) => a.price - b.price).map((p: any, idx: number) => {
-                                const isCurrent = planObj?._id === p._id;
-                                const isMiddle = idx === 1;
-                                return (
-                                    <div
-                                        key={p._id}
-                                        className={`rounded-2xl flex flex-col relative ${isCurrent
-                                                ? "border-2 border-blue-600 shadow-lg"
-                                                : isMiddle
-                                                    ? "border-2 border-gray-900 shadow-lg"
-                                                    : "border border-gray-100"
-                                            } bg-white`}
-                                    >
-                                        {isCurrent && (
-                                            <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-blue-600 text-white text-[9px] font-bold uppercase tracking-widest rounded-full">
-                                                Current Plan
-                                            </div>
-                                        )}
-                                        {!isCurrent && isMiddle && (
-                                            <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-gray-900 text-white text-[9px] font-bold uppercase tracking-widest rounded-full">
-                                                Popular
-                                            </div>
-                                        )}
-                                        <div className="p-6 flex-1">
-                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">{p.name}</p>
-                                            <div className="flex items-baseline gap-1 mb-5">
-                                                <span className="text-3xl font-extrabold text-gray-900">${p.price ?? 0}</span>
-                                                <span className="text-sm text-gray-400 font-medium">/mo</span>
-                                            </div>
-                                            <div className="space-y-2.5 text-sm text-gray-600">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-4 h-4 rounded-full bg-green-50 text-green-600 flex items-center justify-center shrink-0 border border-green-100"><CheckIcon /></div>
-                                                    {(p.limits?.maxProjects ?? 0) > 0 ? p.limits.maxProjects : "Unlimited"} Projects
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-4 h-4 rounded-full bg-green-50 text-green-600 flex items-center justify-center shrink-0 border border-green-100"><CheckIcon /></div>
-                                                    {(p.limits?.maxUsers ?? 0) > 0 ? p.limits.maxUsers : "Unlimited"} Members
-                                                </div>
-                                                {[
-                                                    { key: "chat", label: "Direct Chat" },
-                                                    { key: "kanban", label: "Kanban Boards" },
-                                                    { key: "analytics", label: "Analytics" },
-                                                    { key: "notifications", label: "Notifications" },
-                                                ].map(({ key, label }) => (
-                                                    <div key={key} className={`flex items-center gap-2 ${!p.features?.[key] ? "opacity-40" : ""}`}>
-                                                        <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 border ${p.features?.[key] ? "bg-green-50 text-green-600 border-green-100" : "bg-gray-50 text-gray-300 border-gray-100"}`}>
-                                                            <CheckIcon />
-                                                        </div>
-                                                        {label}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                        <div className="px-6 pb-6">
-                                            <button
-                                                onClick={() => !isCurrent && handleSwitchPlan(p._id)}
-                                                disabled={isCurrent}
-                                                className={`w-full py-2.5 rounded-xl text-sm font-bold transition-colors ${isCurrent
-                                                        ? "bg-blue-50 text-blue-600 cursor-default"
-                                                        : isMiddle
-                                                            ? "bg-gray-900 text-white hover:bg-black"
-                                                            : "border border-gray-200 text-gray-900 hover:bg-gray-50"
-                                                    }`}
-                                            >
-                                                {isCurrent ? "Your Current Plan" : `Switch to ${p.name}`}
-                                            </button>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
                 </div>
             )}
 
             {/* ══════════════════════  BILLING HISTORY TAB  ════════════════════ */}
             {activeTab === "Billing History" && (
                 <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden">
-                    <div className="px-5 py-4 border-b border-gray-50 flex justify-between items-center">
-                        <h3 className="text-sm font-bold text-gray-900">Full Billing History</h3>
-                        <span className="text-[11px] text-gray-400">{history.length} records</span>
+                    <div className="px-4 py-3 border-b border-gray-50 flex justify-between items-center">
+                        <h3 className="text-xs font-bold text-gray-900">Full Billing History</h3>
+                        <span className="text-[10px] text-gray-400">{history.length} records</span>
                     </div>
                     {history.length === 0 ? (
-                        <div className="px-5 py-12 text-center text-sm text-gray-400">No billing history available yet.</div>
+                        <div className="px-4 py-10 text-center text-xs text-gray-400">No billing history available yet.</div>
                     ) : (
                         <div className="overflow-x-auto">
-                            <table className="w-full text-sm text-left">
+                            <table className="w-full text-xs text-left">
                                 <thead>
                                     <tr className="border-b border-gray-100 bg-gray-50/50">
-                                        <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">#</th>
-                                        <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Plan</th>
-                                        <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Action</th>
-                                        <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Start</th>
-                                        <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">End</th>
-                                        <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Changed</th>
-                                        <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-right">Amount</th>
+                                        <th className="px-4 py-2.5 text-[9px] font-bold text-gray-400 uppercase tracking-wider">#</th>
+                                        <th className="px-4 py-2.5 text-[9px] font-bold text-gray-400 uppercase tracking-wider">Plan</th>
+                                        <th className="px-4 py-2.5 text-[9px] font-bold text-gray-400 uppercase tracking-wider">Action</th>
+                                        <th className="px-4 py-2.5 text-[9px] font-bold text-gray-400 uppercase tracking-wider">Start</th>
+                                        <th className="px-4 py-2.5 text-[9px] font-bold text-gray-400 uppercase tracking-wider">End</th>
+                                        <th className="px-4 py-2.5 text-[9px] font-bold text-gray-400 uppercase tracking-wider">Changed</th>
+                                        <th className="px-4 py-2.5 text-[9px] font-bold text-gray-400 uppercase tracking-wider text-right">Amount</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
                                     {[...history].reverse().map((h: any, i: number) => (
                                         <tr key={i} className="hover:bg-gray-50/50 transition-colors">
-                                            <td className="px-5 py-3 text-gray-400 text-[11px]">{history.length - i}</td>
-                                            <td className="px-5 py-3 font-medium text-gray-900">{h.planId?.name ?? planName}</td>
-                                            <td className="px-5 py-3">
-                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${actionColor[h.action] ?? "bg-gray-100 text-gray-500"}`}>
+                                            <td className="px-4 py-2.5 text-gray-400 text-[10px]">{history.length - i}</td>
+                                            <td className="px-4 py-2.5 font-medium text-gray-900">{h.planId?.name ?? planName}</td>
+                                            <td className="px-4 py-2.5">
+                                                <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${actionColor[h.action] ?? "bg-gray-100 text-gray-500"}`}>
                                                     {actionLabel[h.action] ?? h.action}
                                                 </span>
                                             </td>
-                                            <td className="px-5 py-3 text-gray-500">{fmt(h.startDate)}</td>
-                                            <td className="px-5 py-3 text-gray-500">{fmt(h.endDate)}</td>
-                                            <td className="px-5 py-3 text-gray-500">{fmt(h.changedAt)}</td>
-                                            <td className="px-5 py-3 font-bold text-gray-900 text-right">${h.planId?.price ?? planPrice}</td>
+                                            <td className="px-4 py-2.5 text-gray-500">{fmt(h.startDate)}</td>
+                                            <td className="px-4 py-2.5 text-gray-500">{fmt(h.endDate)}</td>
+                                            <td className="px-4 py-2.5 text-gray-500">{fmt(h.changedAt)}</td>
+                                            <td className="px-4 py-2.5 font-bold text-gray-900 text-right">${h.planId?.price ?? planPrice}</td>
                                         </tr>
                                     ))}
                                 </tbody>

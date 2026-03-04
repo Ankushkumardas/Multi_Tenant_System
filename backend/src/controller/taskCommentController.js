@@ -16,17 +16,24 @@ export const createComment = async (req, res) => {
       parentId,
     });
 
-    // Notify mentioned users
+    // Notify mentioned users (in parallel for performance)
     if (mentions.length > 0) {
-      for (const mentionUserId of mentions) {
-        await createNotification(req, {
-          tenantId,
-          userId: mentionUserId,
-          title: "New Mention",
-          type: "COMMENT",
-          message: `${req.user.name} mentioned you in a comment`,
-        });
-      }
+      Promise.all(
+        mentions.map((mentionUserId) =>
+          createNotification(req, {
+            tenantId,
+            userId: mentionUserId,
+            title: "New Mention",
+            type: "COMMENT",
+            message: `${req.user.name} mentioned you in a comment`,
+          }).catch((err) =>
+            console.error(
+              `Mention notification failed for user ${mentionUserId}:`,
+              err.message,
+            ),
+          ),
+        ),
+      );
     }
 
     // Populate user details before returning
@@ -35,12 +42,10 @@ export const createComment = async (req, res) => {
       "name email",
     );
 
-    res
-      .status(201)
-      .json({
-        message: "Comment created successfully",
-        comment: populatedComment,
-      });
+    res.status(201).json({
+      message: "Comment created successfully",
+      comment: populatedComment,
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

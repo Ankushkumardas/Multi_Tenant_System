@@ -16,14 +16,14 @@ import { useMemo } from "react";
 const fmt = (d?: string) =>
   d ? new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "—";
 
-const rel = (d: string) => {
-  const m = Math.floor((Date.now() - new Date(d).getTime()) / 60000);
-  if (m < 1) return "just now";
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
-};
+// const rel = (d: string) => {
+//   const m = Math.floor((Date.now() - new Date(d).getTime()) / 60000);
+//   if (m < 1) return "just now";
+//   if (m < 60) return `${m}m ago`;
+//   const h = Math.floor(m / 60);
+//   if (h < 24) return `${h}h ago`;
+//   return `${Math.floor(h / 24)}d ago`;
+// };
 
 const colors = ["bg-blue-600", "bg-violet-600", "bg-emerald-600", "bg-amber-600", "bg-rose-500", "bg-cyan-600"];
 
@@ -35,7 +35,7 @@ const DashboardPage = () => {
   const { data: projectsData, isLoading: pL } = useProjects();
   const { data: statsData, isLoading: sL } = useDashboardStats();
   const { data: teamData, isLoading: tL } = useWorkspaceMembers();
-  const { data: activityData, isLoading: aL } = useActivityFeed();
+  const { data: activityData } = useActivityFeed();
   const { data: activityStatsData } = useActivityStats();
 
   const projects: any[] = projectsData?.projects ?? projectsData ?? [];
@@ -133,8 +133,8 @@ const DashboardPage = () => {
           <StatCard label="Projects" value={stats.totalProjects ?? 0} loading={loading} accent="blue" />
           <StatCard label="Total Tasks" value={stats.totalTasks ?? 0} loading={loading} accent="violet" />
           <StatCard label="My Tasks" value={stats.assignedTasks ?? 0} loading={loading} accent="emerald" />
-          <StatCard label="Completed" value={stats.completedTasks ?? 0} loading={loading} accent="green" />
-          <StatCard label="Overdue" value={stats.overdueTasks ?? 0} loading={loading} accent="rose" />
+          <StatCard label="Done" value={stats.doneTasks ?? 0} loading={loading} accent="green" />
+          <StatCard label="Late" value={stats.overdueTasks ?? 0} loading={loading} accent="rose" />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -361,39 +361,6 @@ const DashboardPage = () => {
                 ))
               )}
             </div>
-          </div>
-        </div>
-
-        {/* ── Recent Activity Feed ── */}
-        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-50 flex justify-between items-center">
-            <h3 className="text-[14px] font-bold text-gray-900">Recent Activity</h3>
-            <Link to={`/${slug}/activity`} className="text-[11px] font-bold text-blue-600 hover:underline uppercase tracking-wider">View All</Link>
-          </div>
-          <div className="divide-y divide-gray-50">
-            {aL ? (
-              Array(3).fill(0).map((_, i) => (
-                <div key={i} className="px-5 py-4"><div className="h-6 bg-gray-50 animate-pulse rounded" /></div>
-              ))
-            ) : activities.length === 0 ? (
-              <div className="px-5 py-10 text-center text-[12px] text-gray-400">No recent activity.</div>
-            ) : (
-              activities.slice(0, 5).map((a: any, i: number) => (
-                <div key={i} className="px-5 py-3 flex items-center gap-4 hover:bg-gray-50/50 transition-colors">
-                  <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-500 shrink-0">
-                    {a.userId?.name?.[0]?.toUpperCase() ?? "S"}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[12px] text-gray-800">
-                      <span className="font-semibold">{a.userId?.name ?? "System"}</span>{" "}
-                      <span className="text-gray-500">{a.actionType || a.action || a.description}</span>
-                    </p>
-                    {a.projectId?.name && <span className="text-[10px] text-gray-400">{a.projectId.name}</span>}
-                  </div>
-                  <span className="text-[10px] text-gray-400 whitespace-nowrap">{rel(a.createdAt)}</span>
-                </div>
-              ))
-            )}
           </div>
         </div>
 

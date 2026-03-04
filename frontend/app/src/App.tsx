@@ -17,14 +17,11 @@ import SubscriptionPage from './pages/subscription/SubscriptionPage';
 import PaymentPage from './pages/subscription/PaymentPage';
 import ChatPage from './pages/chat/ChatPage';
 import SettingsLayout from './pages/settings/SettingsLayout';
-import ProfilePage from './pages/settings/ProfilePage';
-import SessionsPage from './pages/settings/SessionsPage';
-import WorkspacePage from './pages/settings/WorkspacePage';
+import AccountSettingsPage from './pages/settings/AccountSettingsPage';
 import VerifyEmail from './pages/auth/VerifyEmail';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
 import MembersPage from './pages/members/MembersPage';
-import NotificationsPage from './pages/notifications/NotificationsPage';
 import ProjectTeamsPage from './pages/settings/ProjectTeamsPage';
 import ProjectMapDetailPage from './pages/settings/ProjectMapDetailPage';
 import TenantRoute from './router/TenantRoute';
@@ -61,14 +58,11 @@ const App = () => {
             {/* Activity & Audit & Chat & Notifications */}
             <Route path='activity' element={<ActivityPage />} />
             <Route path='chat' element={<ChatPage />} />
-            <Route path='notifications' element={<NotificationsPage />} />
 
             {/* Settings */}
             <Route path='settings' element={<SettingsLayout />}>
-              <Route index element={<Navigate to="profile" replace />} />
-              <Route path='profile' element={<ProfilePage />} />
-              <Route path='sessions' element={<SessionsPage />} />
-              <Route path='workspace' element={<WorkspacePage />} />
+              <Route index element={<Navigate to="account" replace />} />
+              <Route path='account' element={<AccountSettingsPage />} />
               <Route path='subscription' element={<SubscriptionPage />} />
               <Route path='subscription/checkout' element={<PaymentPage />} />
               {/* Role-guarded: OWNER / ADMIN only */}

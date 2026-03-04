@@ -8,7 +8,7 @@ import { formatDistanceToNow } from "date-fns";
 
 const MembersPage = () => {
     const { slug } = useParams();
-    const { user, tenant } = useAuthStore();
+    const { user } = useAuthStore();
     const queryClient = useQueryClient();
 
     const { data: teamData, isLoading } = useWorkspaceMembers();
@@ -69,27 +69,6 @@ const MembersPage = () => {
 
     return (
         <div className="space-y-6 max-w-[1500px] mx-auto pb-10">
-            {/* Header */}
-            <div className="flex justify-between items-center bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
-                <div className="flex items-center gap-4">
-                    <h1 className="text-xl font-bold text-gray-900">Team Management</h1>
-                    {tenant?.currentSubscription?.planId?.name && (
-                        <span className="px-2.5 py-1 bg-green-100 text-green-700 text-[10px] font-bold uppercase tracking-wider rounded-md">
-                            {tenant.currentSubscription.planId.name}
-                        </span>
-                    )}
-                </div>
-                <div className="flex items-center gap-3">
-                    <div className="relative">
-                        <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                        <input type="text" placeholder="Search members, roles..." className="pl-9 pr-4 py-2 bg-gray-50 border border-gray-100 rounded-lg text-sm focus:outline-none focus:bg-white focus:border-gray-300 w-64 transition-colors" />
-                    </div>
-                    <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                        Export Report
-                    </button>
-                </div>
-            </div>
 
             {/* Metrics Row */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

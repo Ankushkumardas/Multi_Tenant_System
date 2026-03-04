@@ -355,7 +355,7 @@ const ActivityPage = () => {
                                         ))}
 
                                         {/* Pagination */}
-                                        <div className="px-5 py-4 flex items-center justify-between border-t bg-white">
+                                        <div className="px-5 py-4 flex items-center justify-between border-gray-50 border-t bg-white">
                                             <div className="text-sm text-gray-500">
                                                 Showing <span className="font-semibold text-gray-900">{Math.min(start + 1, total)}</span> – <span className="font-semibold text-gray-900">{Math.min(end, total)}</span> of <span className="font-semibold text-gray-900">{total}</span>
                                             </div>

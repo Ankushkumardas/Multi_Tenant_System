@@ -13,8 +13,13 @@ const ProjectsPage = () => {
     const [statusTab, setStatusTab] = useState<"ALL" | "ACTIVE" | "ARCHIVED">("ACTIVE");
     const [search, setSearch] = useState("");
     const [showCreate, setShowCreate] = useState(false);
+    const [selectedProject, setSelectedProject] = useState<any>(null);
     const navigate = useNavigate();
     const { slug } = useParams();
+
+    const handleEdit = (p: any) => {
+        setSelectedProject(p);
+    };
 
     const allProjects: any[] = projectsData?.projects ?? projectsData ?? [];
     const isOwner = user?.role === "OWNER" || user?.role === "ADMIN";
@@ -83,13 +88,19 @@ const ProjectsPage = () => {
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
                         {filtered.map(p => (
-                            <ProjectCard key={p._id} project={p} onClick={() => navigate(`/${slug}/projects/${p._id}`)} />
+                            <ProjectCard
+                                key={p._id}
+                                project={p}
+                                onClick={() => navigate(`/${slug}/projects/${p._id}`)}
+                                onEdit={isOwner ? () => handleEdit(p) : undefined}
+                            />
                         ))}
                     </div>
                 )}
             </div>
 
             {showCreate && <ProjectFormModal onClose={() => setShowCreate(false)} />}
+            {selectedProject && <ProjectFormModal project={selectedProject} onClose={() => setSelectedProject(null)} />}
         </DashboardLayout>
     );
 };

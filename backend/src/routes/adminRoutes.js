@@ -8,8 +8,27 @@ import {
   getTenantUsers,
   revokeInvite,
 } from "../controller/authController.js";
+import {
+  getTenantSettings,
+  updateTenantSettings,
+} from "../controller/tenantController.js";
 
 const router = express.Router({ mergeParams: true });
+
+router.get(
+  "/settings",
+  authenticate,
+  checkTenant,
+  authorize("OWNER", "ADMIN"),
+  getTenantSettings,
+);
+router.put(
+  "/settings",
+  authenticate,
+  checkTenant,
+  authorize("OWNER", "ADMIN"),
+  updateTenantSettings,
+);
 
 router.post(
   "/send-invite",

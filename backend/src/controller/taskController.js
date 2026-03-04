@@ -229,17 +229,24 @@ export const assignTask = async (req, res) => {
         .json({ success: false, message: "Task not found" });
     }
 
-    //notify to assigned members
-    if (assignedTo && assignedTo.length > 0) {
-      for (const assignedUserId of assignedTo) {
-        await createNotification(req, {
-          tenantId,
-          userId: assignedUserId,
-          title: "New Task Assignment",
-          type: "ASSIGN_TASK",
-          message: `${req.user.name} assigned you a task`,
-        });
-      }
+    // notify to newly assigned members (in parallel for performance)
+    if (assignedTo && Array.isArray(assignedTo) && assignedTo.length > 0) {
+      Promise.all(
+        assignedTo.map((assignedUserId) =>
+          createNotification(req, {
+            tenantId,
+            userId: assignedUserId,
+            title: "New Task Assignment",
+            type: "ASSIGN_TASK",
+            message: `${req.user.name} assigned you a task`,
+          }).catch((err) =>
+            console.error(
+              `Notification failed for user ${assignedUserId}:`,
+              err.message,
+            ),
+          ),
+        ),
+      );
     }
     saveAuditLog({
       tenantId,
@@ -395,18 +402,24 @@ export const updateTaskDueDate = async (req, res) => {
 export const getDashboardStats = async (req, res) => {
   try {
     const { tenantId, userId } = req.user;
-    const [totalProjects, totalTasks, assignedTasks, completedTasks] =
+    const now = new Date().toISOString();
+
+    const [totalProjects, totalTasks, assignedTasks, doneTasks, pendingTasks] =
       await Promise.all([
         mongoose.model("Project").countDocuments({ tenantId }),
         Task.countDocuments({ tenantId }),
         Task.countDocuments({ tenantId, assignedTo: userId }),
-        Task.countDocuments({ tenantId, status: "COMPLETED" }),
+        Task.countDocuments({ tenantId, status: "DONE" }),
+        Task.countDocuments({
+          tenantId,
+          status: { $in: ["TODO", "IN_PROGRESS", "REVIEW"] },
+        }),
       ]);
 
     const overdueTasks = await Task.countDocuments({
       tenantId,
-      status: { $ne: "COMPLETED" },
-      dueDate: { $lt: new Date().toISOString() },
+      status: { $ne: "DONE" },
+      dueDate: { $lt: now },
     });
 
     res.status(200).json({
@@ -415,7 +428,8 @@ export const getDashboardStats = async (req, res) => {
         totalProjects,
         totalTasks,
         assignedTasks,
-        completedTasks,
+        doneTasks,
+        pendingTasks,
         overdueTasks,
       },
     });

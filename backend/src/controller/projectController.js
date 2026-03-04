@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Project from "../models/ProjectSchema.js";
 import { eventBus } from "../service/EventBus.js";
 import User from "../models/UserSchema.js";
@@ -94,25 +95,72 @@ export const getMyProjects = async (req, res) => {
   try {
     const { userId, tenantId, role } = req.user;
 
-    let projects;
+    let projectIds;
 
-    // Owners and Admins can see all projects for the tenant
     if (role === "OWNER" || role === "ADMIN") {
-      projects = await Project.find({ tenantId }).sort({ createdAt: -1 });
+      const projects = await Project.find({ tenantId });
+      projectIds = projects.map((p) => p._id);
     } else {
-      // Others see projects they are members of
       const memberships = await ProjectMember.find({ userId, tenantId });
-      const projectIds = memberships.map((m) => m.projectId);
-      projects = await Project.find({
-        _id: { $in: projectIds },
-        tenantId,
-      }).sort({ createdAt: -1 });
+      projectIds = memberships.map((m) => m.projectId);
     }
 
-    res
-      .status(200)
-      .json({ message: "Projects fetched successfully", projects });
+    const projectsWithStats = await Project.aggregate([
+      {
+        $match: {
+          _id: { $in: projectIds },
+          tenantId: new mongoose.Types.ObjectId(tenantId),
+        },
+      },
+      {
+        $lookup: {
+          from: "tasks",
+          localField: "_id",
+          foreignField: "projectId",
+          as: "tasks",
+        },
+      },
+      {
+        $lookup: {
+          from: "projectmembers",
+          localField: "_id",
+          foreignField: "projectId",
+          as: "members",
+        },
+      },
+      {
+        $project: {
+          name: 1,
+          description: 1,
+          ownerId: 1,
+          tenantId: 1,
+          startDate: 1,
+          endDate: 1,
+          status: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          totalTasks: { $size: "$tasks" },
+          completedTasks: {
+            $size: {
+              $filter: {
+                input: "$tasks",
+                as: "task",
+                cond: { $eq: ["$$task.status", "DONE"] },
+              },
+            },
+          },
+          membersCount: { $size: "$members" },
+        },
+      },
+      { $sort: { createdAt: -1 } },
+    ]);
+
+    res.status(200).json({
+      message: "Projects fetched successfully",
+      projects: projectsWithStats,
+    });
   } catch (error) {
+    console.error("GetMyProjects Error:", error);
     res.status(500).json({ message: error.message });
   }
 };
