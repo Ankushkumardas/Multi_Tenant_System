@@ -6,6 +6,8 @@ export const getTenantAuditLogs = async (req, res) => {
     const { tenantId } = req.user;
     const { page = 1, limit = 20, actorUserId, action } = req.query;
 
+    console.log("Fetching audit logs:", { tenantId, page, limit, actorUserId, action });
+
     const filter = { tenantId };
     if (actorUserId) filter.actorUserId = actorUserId;
     if (action) filter.action = action;
@@ -22,6 +24,7 @@ export const getTenantAuditLogs = async (req, res) => {
       .status(200)
       .json({ logs, total, page: Number(page), limit: Number(limit) });
   } catch (error) {
+    console.error("Error fetching audit logs:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -30,6 +33,9 @@ export const getTenantAuditLogs = async (req, res) => {
 export const getAuditStats = async (req, res) => {
   try {
     const { tenantId } = req.user;
+
+    console.log("Fetching audit stats for tenant:", tenantId);
+
     const stats = await Audit.aggregate([
       { $match: { tenantId: new mongoose.Types.ObjectId(tenantId) } },
       { $group: { _id: "$action", count: { $sum: 1 } } },
@@ -37,7 +43,7 @@ export const getAuditStats = async (req, res) => {
     ]);
     res.status(200).json({ stats });
   } catch (error) {
-    console.error(error);
+    console.error("Error fetching audit stats:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 };

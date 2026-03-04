@@ -142,3 +142,19 @@ export const createRoom = async (req, res) => {
   }
 };
 
+export const getChatMessages = async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    const messages = await Message.find({
+      chatRoomId: roomId,
+      tenantId: req.user.tenantId,
+      deletedFor: { $ne: req.user.userId },
+    })
+      .sort({ createdAt: 1 })
+      .populate("senderId", "name email");
+
+    res.status(200).json({ messages });
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+};

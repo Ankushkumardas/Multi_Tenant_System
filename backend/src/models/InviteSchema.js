@@ -1,46 +1,53 @@
 import mongoose from "mongoose";
 
-const InviteSchema = new mongoose.Schema({
-  tenantId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Tenant",
-    required: true,
-  },
+const InviteSchema = new mongoose.Schema(
+  {
+    tenantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Tenant",
+      required: true,
+    },
 
-  email: {
-    type: String,
-    required: true,
-    lowercase: true,
-  },
+    email: {
+      type: String,
+      required: true,
+      lowercase: true,
+    },
 
-  role: {
-    type: String,
-    enum: ["ADMIN", "MANAGER", "USER", "VIEWER"],
-    default: "USER",
-  },
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
 
-  token: {
-    type: String,
-    required: true,
-    unique: true,
-  },
+    role: {
+      type: String,
+      enum: ["ADMIN", "MANAGER", "USER", "VIEWER"],
+      default: "USER",
+    },
 
-  expiresAt: {
-    type: Date,
-    required: true,
-  },
+    token: {
+      type: String,
+      required: true,
+      unique: true,
+    },
 
-  isUsed: {
-    type: Boolean,
-    default: false,
-  },
+    expiresAt: {
+      type: Date,
+      required: true,
+    },
 
-  invitedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-  },
+    isUsed: {
+      type: Boolean,
+      default: false,
+    },
 
-}, { timestamps: true });
+    invitedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+  },
+  { timestamps: true },
+);
 
 InviteSchema.index({ tenantId: 1, email: 1 });
 

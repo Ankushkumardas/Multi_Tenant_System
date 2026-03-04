@@ -6,10 +6,18 @@ import { api } from "../lib/axios";
 export default function ProtectedRoute() {
   const { slug } = useParams();
   const { isAuthenticated, setUser, setTenant } = useAuthStore();
-  const [loading, setLoading] = useState(true);
+
+  // If the auth store is already populated (e.g. just logged in), skip the API check
+  const [loading, setLoading] = useState(!isAuthenticated);
   const [authFailed, setAuthFailed] = useState(false);
 
   useEffect(() => {
+    // If already authenticated from the store, no need to re-verify
+    if (isAuthenticated) {
+      setLoading(false);
+      return;
+    }
+
     async function AuthCheck() {
       try {
         const res = await api.get(`/${slug}/user/profile`);
@@ -23,7 +31,7 @@ export default function ProtectedRoute() {
     }
 
     AuthCheck();
-  }, [slug]);
+  }, [slug, isAuthenticated]);
 
   if (loading) {
     return (

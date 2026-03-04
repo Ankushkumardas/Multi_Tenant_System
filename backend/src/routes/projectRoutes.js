@@ -152,7 +152,7 @@ router.put(
   "/:projectId/tasks/:taskId",
   authenticate,
   checkTenant,
-  authorize("OWNER", "ADMIN", "MANAGER"),
+  authorize("OWNER", "ADMIN", "MANAGER", "USER"),
   checkPermissions(["UPDATE_TASK"]),
   updateTask,
 );
@@ -178,7 +178,7 @@ router.post(
   "/:projectId/tasks/:taskId/assign",
   authenticate,
   checkTenant,
-  authorize("OWNER", "ADMIN", "MANAGER"),
+  authorize("OWNER", "ADMIN", "MANAGER", "USER", "MEMBER"),
   checkPermissions(["ASSIGN_TASK"]),
   assignTask,
 );
@@ -187,7 +187,7 @@ router.put(
   "/:projectId/tasks/:taskId/status",
   authenticate,
   checkTenant,
-  authorize("OWNER", "ADMIN", "MANAGER"),
+  authorize("OWNER", "ADMIN", "MANAGER", "USER"),
   checkPermissions(["UPDATE_TASK_STATUS"]),
   updateTaskStatus,
 );
@@ -196,7 +196,7 @@ router.put(
   "/:projectId/tasks/:taskId/priority",
   authenticate,
   checkTenant,
-  authorize("OWNER", "ADMIN", "MANAGER"),
+  authorize("OWNER", "ADMIN", "MANAGER", "USER"),
 
   checkPermissions(["UPDATE_TASK_PRIORITY"]),
   updateTaskPriority,
@@ -206,7 +206,7 @@ router.put(
   "/:projectId/tasks/:taskId/due-date",
   authenticate,
   checkTenant,
-  authorize("OWNER", "ADMIN", "MANAGER"),
+  authorize("OWNER", "ADMIN", "MANAGER", "USER"),
 
   checkPermissions(["UPDATE_TASK_DUE_DATE"]),
   updateTaskDueDate,

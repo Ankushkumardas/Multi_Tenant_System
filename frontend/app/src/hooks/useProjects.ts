@@ -62,6 +62,18 @@ export const useProjectSections = (projectId: string | undefined) => {
             const res = await api.get(`/${slug}/projects/${projectId}/sections`);
             return res.data;
         },
-        enabled: !!projectId,
+    });
+};
+
+// ── Task comments ─────────────────────────────────────────────────────────────
+export const useTaskComments = (projectId: string, taskId: string) => {
+    const { slug } = useParams();
+    return useQuery({
+        queryKey: ["task-comments", slug, taskId],
+        queryFn: async () => {
+            const res = await api.get(`/${slug}/projects/${projectId}/tasks/${taskId}/comments`);
+            return res.data;
+        },
+        enabled: !!taskId && !!projectId,
     });
 };

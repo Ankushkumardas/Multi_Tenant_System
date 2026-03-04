@@ -22,7 +22,7 @@ const TenantSubscriptionSchema = new mongoose.Schema(
 
     billingCycle: {
       type: String,
-      enum: ["MONTHLY", "YEARLY"],
+      enum: ["MONTHLY", "YEARLY","QUARTERLY","HALF_YEARLY"],
       default: "MONTHLY",
     },
 
@@ -57,7 +57,7 @@ const TenantSubscriptionSchema = new mongoose.Schema(
         changedAt: Date,
         action: {
           type: String,
-          enum: ["CREATED", "UPGRADED", "DOWNGRADED", "RENEWED"],
+          enum: ["CREATED", "UPGRADED", "DOWNGRADED", "RENEWED", "BILLING_CYCLE_CHANGED"],
         },
       },
     ],

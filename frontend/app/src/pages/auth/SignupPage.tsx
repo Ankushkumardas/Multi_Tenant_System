@@ -1,7 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
-import { api } from "../../lib/axios";
 
 
 const PLANS = [
@@ -130,19 +128,25 @@ const SignupPage = () => {
   const [selectedPlan, setSelectedPlan] = useState<"FREE" | "PRO" | "ENTERPRISE">("FREE");
   const [formData, setformData] = useState({ name: "", email: "", password: "", plan: selectedPlan, companyName: "" });
 
-  const mutation = useMutation({
-    mutationFn: async (data: Register) => {
-      const res = await api.post("/auth/register-owner", data);
-      return res.data;
-    },
-    onSuccess(data: any) {
-      navigate(`/verify-email`, { state: { email: data.user?.email ?? formData.email } });
-    },
-  });
-
   const handleRegister = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    mutation.mutate({ ...formData, plan: selectedPlan });
+    const selected = PLANS.find((p) => p.id === selectedPlan);
+    navigate("/checkout", {
+      state: {
+        mode: "signup",
+        planId: selectedPlan,
+        planName: selected?.name ?? selectedPlan,
+        priceLabel: selected?.price ?? "$0",
+        tagline: selected?.tagline ?? "",
+        signupData: {
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+          companyName: formData.companyName,
+          plan: selectedPlan,
+        } as Register,
+      },
+    });
   };
 
   const handleNextStep = (e: React.FormEvent<HTMLFormElement>) => {
@@ -396,26 +400,17 @@ const SignupPage = () => {
                   <button
                     id="signup-submit"
                     type="submit"
-                    disabled={mutation.isPending}
-                    className="flex-1 h-10 bg-gray-900 text-white text-[13px] font-semibold rounded-lg hover:bg-gray-700 active:scale-[0.98] transition-all duration-150 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="flex-1 h-10 bg-gray-900 text-white text-[13px] font-semibold rounded-lg hover:bg-gray-700 active:scale-[0.98] transition-all duration-150 flex items-center justify-center gap-2"
                   >
-                    {mutation.isPending ? "Creating account…" : (
-                      <>
-                        Create account with {PLANS.find(p => p.id === selectedPlan)?.name} plan
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-                        </svg>
-                      </>
-                    )}
+                    <>
+                      Create account with {PLANS.find(p => p.id === selectedPlan)?.name} plan
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                      </svg>
+                    </>
                   </button>
                 </div>
 
-                {/* Error */}
-                {mutation.isError && (
-                  <p className="text-[12px] text-red-500 text-center mt-3">
-                    Something went wrong. Please try again.
-                  </p>
-                )}
               </form>
             </>
           )}

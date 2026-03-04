@@ -60,7 +60,7 @@ export const searchMessage = async (req, res) => {
     const messages = await Message.find({
       tenantId: tenantId,
       content: { $regex: query, $options: "i" },
-    });
+    }).populate("senderId", "name email");
     res.status(200).json({ messages });
   } catch (error) {
     res.status(500).json({ message: "Internal server error" });

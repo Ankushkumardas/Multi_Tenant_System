@@ -1,5 +1,7 @@
 import Task from "../models/TaskSchema.js";
+import mongoose from "mongoose";
 import { saveAuditLog, saveActivityLog } from "../service/auditLogger.js";
+import { createNotification } from "../service/notification.js";
 
 export const createTask = async (req, res) => {
   try {
@@ -216,7 +218,7 @@ export const assignTask = async (req, res) => {
     const { taskId } = req.params;
     const { assignedTo } = req.body;
     const tenantId = req.user.tenantId;
-    const task = await Task.findByIdAndUpdate(
+    const task = await Task.findOneAndUpdate(
       { _id: taskId, tenantId },
       { assignedTo },
       { new: true },
@@ -227,15 +229,17 @@ export const assignTask = async (req, res) => {
         .json({ success: false, message: "Task not found" });
     }
 
-    //notify to assined memeebrs
-    for (const userId of assignedTo) {
-      await createNotification(req, {
-        type: "ASSIGN_TASK",
-        targetId: taskId,
-        targetType: "TASK",
-        message: `${req.user.name} assigned you a task`,
-        userId: userId,
-      });
+    //notify to assigned members
+    if (assignedTo && assignedTo.length > 0) {
+      for (const assignedUserId of assignedTo) {
+        await createNotification(req, {
+          tenantId,
+          userId: assignedUserId,
+          title: "New Task Assignment",
+          type: "ASSIGN_TASK",
+          message: `${req.user.name} assigned you a task`,
+        });
+      }
     }
     saveAuditLog({
       tenantId,
@@ -383,6 +387,52 @@ export const updateTaskDueDate = async (req, res) => {
       task,
       message: "Task Due Date Updated Successfully",
     });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getDashboardStats = async (req, res) => {
+  try {
+    const { tenantId, userId } = req.user;
+    const [totalProjects, totalTasks, assignedTasks, completedTasks] =
+      await Promise.all([
+        mongoose.model("Project").countDocuments({ tenantId }),
+        Task.countDocuments({ tenantId }),
+        Task.countDocuments({ tenantId, assignedTo: userId }),
+        Task.countDocuments({ tenantId, status: "COMPLETED" }),
+      ]);
+
+    const overdueTasks = await Task.countDocuments({
+      tenantId,
+      status: { $ne: "COMPLETED" },
+      dueDate: { $lt: new Date().toISOString() },
+    });
+
+    res.status(200).json({
+      success: true,
+      stats: {
+        totalProjects,
+        totalTasks,
+        assignedTasks,
+        completedTasks,
+        overdueTasks,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getAssignedTasks = async (req, res) => {
+  try {
+    const { userId, tenantId } = req.user;
+    const tasks = await Task.find({ tenantId, assignedTo: userId })
+      .populate("projectId", "name")
+      .sort({ dueDate: 1 })
+      .limit(10);
+
+    res.status(200).json({ success: true, tasks });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

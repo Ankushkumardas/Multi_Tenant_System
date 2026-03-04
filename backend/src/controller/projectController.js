@@ -315,7 +315,12 @@ export const addMemberToProject = async (req, res) => {
 
     const project = await Project.findOne({ _id: projectId, tenantId });
     if (!project) {
-      return res.status(404).json({ message: "Project not found" });
+      console.log(
+        `[AddMember] Project not found: ${projectId} for tenant ${tenantId}`,
+      );
+      return res
+        .status(404)
+        .json({ message: "Project not found or access denied" });
     }
 
     let targetUser;
@@ -327,8 +332,10 @@ export const addMemberToProject = async (req, res) => {
 
     if (!targetUser) {
       return res
-        .status(404)
-        .json({ message: "User not found within your tenant" });
+        .status(400)
+        .json({
+          message: "User not found. Please invite them to the workspace first.",
+        });
     }
 
     if (targetUser.tenantId.toString() !== tenantId.toString()) {

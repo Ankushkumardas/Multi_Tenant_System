@@ -7,7 +7,28 @@ import AcceptInvite from './pages/auth/AcceptInvite';
 import DashboardPage from './pages/dashboard/DashboardPage';
 import ProjectsPage from './pages/projects/ProjectsPage';
 import ProjectPage from './pages/projects/ProjectPage';
+import ProjectBoard from './pages/projects/ProjectBoard';
+import ProjectTasks from './pages/projects/ProjectTasks';
+import ProjectMembers from './pages/projects/ProjectMembers';
+import ProjectSettings from './pages/projects/ProjectSettings';
+import ActivityPage from './pages/activity/ActivityPage';
+import AuditPage from './pages/audit/AuditPage';
+import SubscriptionPage from './pages/subscription/SubscriptionPage';
+import PaymentPage from './pages/subscription/PaymentPage';
+import ChatPage from './pages/chat/ChatPage';
+import SettingsLayout from './pages/settings/SettingsLayout';
+import ProfilePage from './pages/settings/ProfilePage';
+import SessionsPage from './pages/settings/SessionsPage';
+import WorkspacePage from './pages/settings/WorkspacePage';
 import VerifyEmail from './pages/auth/VerifyEmail';
+import ForgotPassword from './pages/auth/ForgotPassword';
+import ResetPassword from './pages/auth/ResetPassword';
+import MembersPage from './pages/members/MembersPage';
+import NotificationsPage from './pages/notifications/NotificationsPage';
+import ProjectTeamsPage from './pages/settings/ProjectTeamsPage';
+import TenantRoute from './router/TenantRoute';
+import RoleRoute from './router/RoleRoute';
+import { Navigate } from 'react-router-dom';
 
 const App = () => {
   return (
@@ -17,11 +38,46 @@ const App = () => {
         <Route path='/login' element={<LoginPage />} />
         <Route path='/verify-email' element={<VerifyEmail />} />
         <Route path='/signup' element={<SignupPage />} />
+        <Route path='/forgot-password' element={<ForgotPassword />} />
+        <Route path='/reset-password' element={<ResetPassword />} />
         <Route path='/accept-invite' element={<AcceptInvite />} />
-        <Route element={<ProtectedRoute />}>
-          <Route path='/:slug/dashboard' element={<DashboardPage />} />
-          <Route path='/:slug/projects' element={<ProjectsPage />} />
-          <Route path='/:slug/projects/:projectId' element={<ProjectPage />} />
+        <Route path='/:slug' element={<ProtectedRoute />}>
+          <Route element={<TenantRoute />}>
+            {/* Dashboard */}
+            <Route index element={<Navigate to="dashboard" />} />
+            <Route path='dashboard' element={<DashboardPage />} />
+
+            {/* Projects */}
+            <Route path='projects' element={<ProjectsPage />} />
+            <Route path='projects/:projectId' element={<ProjectPage />}>
+              <Route index element={<Navigate to="board" replace />} />
+              <Route path="board" element={<ProjectBoard />} />
+              <Route path="tasks" element={<ProjectTasks />} />
+              <Route path="members" element={<ProjectMembers />} />
+              <Route path="settings" element={<ProjectSettings />} />
+            </Route>
+
+            {/* Activity & Audit & Chat & Notifications */}
+            <Route path='activity' element={<ActivityPage />} />
+            <Route path='chat' element={<ChatPage />} />
+            <Route path='notifications' element={<NotificationsPage />} />
+
+            {/* Settings */}
+            <Route path='settings' element={<SettingsLayout />}>
+              <Route index element={<Navigate to="profile" replace />} />
+              <Route path='profile' element={<ProfilePage />} />
+              <Route path='sessions' element={<SessionsPage />} />
+              <Route path='workspace' element={<WorkspacePage />} />
+              <Route path='subscription' element={<SubscriptionPage />} />
+              <Route path='subscription/checkout' element={<PaymentPage />} />
+              {/* Role-guarded: OWNER / ADMIN only */}
+              <Route element={<RoleRoute allowedRoles={["OWNER", "ADMIN"]} />}>
+                <Route path='team' element={<MembersPage />} />
+                <Route path='projects-team' element={<ProjectTeamsPage />} />
+                <Route path='audit' element={<AuditPage />} />
+              </Route>
+            </Route>
+          </Route>
         </Route>
       </Routes>
     </BrowserRouter>

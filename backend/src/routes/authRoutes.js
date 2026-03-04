@@ -74,8 +74,6 @@ router.post(
     windowsize: 60,
     identifier: "email",
   }),
-  authenticate,
-  checkTenant,
   resetPassword,
 );
 

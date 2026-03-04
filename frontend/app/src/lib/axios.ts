@@ -27,21 +27,21 @@ api.interceptors.response.use((response: any) => {
     //error.cofig store teh url ,headers,body,method get post.... and so on all thi sis storesin teh error.config
 
     //this is like what wwe will get in eth error --->
-//     {
-//   message: "Request failed with status code 401",
-//   config: {
-//     url: "/api/acme/user/profile",
-//     method: "get",
-//     headers: {
-//       Authorization: "Bearer old_token"
-//     },
-//     data: undefined
-//   },
-//   response: {
-//     status: 401,
-//     data: { message: "Unauthorized" }
-//   }
-// }
+    //     {
+    //   message: "Request failed with status code 401",
+    //   config: {
+    //     url: "/api/acme/user/profile",
+    //     method: "get",
+    //     headers: {
+    //       Authorization: "Bearer old_token"
+    //     },
+    //     data: undefined
+    //   },
+    //   response: {
+    //     status: 401,
+    //     data: { message: "Unauthorized" }
+    //   }
+    // }
     const originalRequest = error.config;
     if (error?.response?.status === 401 && !originalRequest?._retry && !originalRequest?.url?.includes("/auth/refresh")) {
         originalRequest._retry = true;
@@ -57,4 +57,5 @@ api.interceptors.response.use((response: any) => {
             return Promise.reject(error);
         }
     }
+    return Promise.reject(error);
 })

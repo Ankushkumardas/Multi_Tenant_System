@@ -1,401 +1,307 @@
 import { DashboardLayout } from "../../components/layout/DashboardLayout";
 import { useAuthStore } from "../../store/authStore";
 import {
+  useDashboardStats,
+  useWorkspaceMembers,
   useActivityFeed,
-  useSubscriptionHistory,
-  useAuditLogs,
-  useAuditStats,
+  useActivityStats,
 } from "../../hooks/useDashboard";
 import { useProjects } from "../../hooks/useProjects";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { motion } from "framer-motion";
+import { useMemo } from "react";
 
-// ── Tiny helpers ──────────────────────────────────────────────────────────────
-const Skeleton = ({ className = "" }: { className?: string }) => (
-  <div className={`bg-gray-100 rounded-lg animate-pulse ${className}`} />
-);
+/* ── helpers ───────────────────────────────────────────── */
+const fmt = (d?: string) =>
+  d ? new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "—";
 
-const formatDate = (d: string) =>
-  new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
-
-const formatRelative = (d: string) => {
-  const diff = Date.now() - new Date(d).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
+const rel = (d: string) => {
+  const m = Math.floor((Date.now() - new Date(d).getTime()) / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
 };
 
-// ── Stat card ─────────────────────────────────────────────────────────────────
-interface StatCardProps {
-  label: string;
-  value: string | number;
-  sub?: string;
-  icon: React.ReactNode;
-  accent?: string;
-  loading?: boolean;
-}
+const colors = ["bg-blue-600", "bg-violet-600", "bg-emerald-600", "bg-amber-600", "bg-rose-500", "bg-cyan-600"];
 
-const StatCard = ({ label, value, sub, icon, accent = "bg-gray-100 text-gray-600", loading }: StatCardProps) => (
-  <div className="bg-white rounded-2xl border border-gray-100 p-5 flex items-start gap-4 shadow-sm hover:shadow-md transition-shadow">
-    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${accent}`}>
-      {icon}
-    </div>
-    <div className="min-w-0 flex-1">
-      <p className="text-[11px] text-gray-400 font-semibold uppercase tracking-wider">{label}</p>
-      {loading ? (
-        <Skeleton className="h-6 w-16 mt-1" />
-      ) : (
-        <p className="text-2xl font-bold text-gray-900 leading-tight mt-0.5">{value ?? "—"}</p>
-      )}
-      {sub && <p className="text-[11px] text-gray-400 mt-0.5 truncate">{sub}</p>}
-    </div>
-  </div>
-);
-
-// ── Mini bar chart ────────────────────────────────────────────────────────────
-const MiniBar = ({ data, label }: { data: number[]; label: string }) => {
-  const max = Math.max(...data, 1);
-  return (
-    <div>
-      <p className="text-[11px] text-gray-400 font-semibold uppercase tracking-wider mb-3">{label}</p>
-      <div className="flex items-end gap-1.5 h-20">
-        {data.map((v, i) => (
-          <div key={i} className="flex-1 flex flex-col items-center gap-1">
-            <div
-              className="w-full bg-gray-900 rounded-t-md transition-all duration-500"
-              style={{ height: `${Math.max((v / max) * 72, 4)}px` }}
-            />
-            <span className="text-[9px] text-gray-300">{i + 1}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-// ── Badge ─────────────────────────────────────────────────────────────────────
-const Badge = ({ text, color = "gray" }: { text: string; color?: string }) => {
-  const colors: Record<string, string> = {
-    gray: "bg-gray-100 text-gray-600",
-    green: "bg-green-50 text-green-700",
-    red: "bg-red-50 text-red-600",
-    yellow: "bg-yellow-50 text-yellow-700",
-    blue: "bg-blue-50 text-blue-700",
-  };
-  return (
-    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${colors[color] ?? colors.gray}`}>
-      {text}
-    </span>
-  );
-};
-
-const planColor = (plan?: string) => {
-  if (!plan) return "gray";
-  const p = plan.toUpperCase();
-  if (p.includes("PRO")) return "blue";
-  if (p.includes("ENT")) return "green";
-  return "gray";
-};
-
-// ── Dashboard page ────────────────────────────────────────────────────────────
 const DashboardPage = () => {
-  const { user, tenant } = useAuthStore();
-  const { data: activityData, isLoading: activityLoading } = useActivityFeed();
-  const { data: auditData, isLoading: auditLoading } = useAuditLogs();
-  const { data: auditStatsData, isLoading: auditStatsLoading } = useAuditStats();
-  const { data: subHistory, isLoading: subLoading } = useSubscriptionHistory();
-  const { data: projectsData, isLoading: projectsLoading } = useProjects();
+  const { tenant } = useAuthStore();
+  const { slug } = useParams();
+  const navigate = useNavigate();
 
-  const activities: any[] = activityData?.activities ?? activityData ?? [];
+  const { data: projectsData, isLoading: pL } = useProjects();
+  const { data: statsData, isLoading: sL } = useDashboardStats();
+  const { data: teamData, isLoading: tL } = useWorkspaceMembers();
+  const { data: activityData, isLoading: aL } = useActivityFeed();
+  const { data: activityStatsData } = useActivityStats();
+
   const projects: any[] = projectsData?.projects ?? projectsData ?? [];
-  const auditLogs: any[] = auditData?.logs ?? auditData?.auditLogs ?? auditData ?? [];
-  const auditStats = auditStatsData;
-  const subData = subHistory?.subscription ?? subHistory;
-  const currentPlan = subData?.planId?.name ?? subData?.plan?.name ?? "Free";
-  const subStatus = subData?.status ?? "ACTIVE";
-  const subEnd = subData?.endDate ? formatDate(subData.endDate) : "—";
+  const stats = statsData?.stats ?? {};
+  const members: any[] = teamData?.users ?? [];
+  const activities: any[] = activityData?.activities ?? activityData ?? [];
+  const actStats: any[] = activityStatsData?.stats ?? [];
+  const loading = pL || sL || tL;
 
-  // Build last-7-days activity bar from feed
-  const activityByDay = Array(7).fill(0);
-  activities.slice(0, 50).forEach((a: any) => {
-    const d = new Date(a.createdAt ?? a.timestamp);
-    const daysAgo = Math.floor((Date.now() - d.getTime()) / 86400000);
-    if (daysAgo < 7) activityByDay[6 - daysAgo]++;
-  });
-
-  const totalActivities = activities.length;
-  const totalProjects = projectsData?.total ?? projects.length;
-  const totalAuditEvents = auditStats?.total ?? auditLogs.length;
-
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  // Activity bar chart — group activities by day (last 7 days)
+  const dailyActivity = useMemo(() => {
+    const days: Record<string, number> = {};
+    const labels: string[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      days[key] = 0;
+      labels.push(d.toLocaleDateString("en-US", { weekday: "short" }));
+    }
+    activities.forEach((a: any) => {
+      const key = new Date(a.createdAt).toISOString().slice(0, 10);
+      if (days[key] !== undefined) days[key]++;
+    });
+    const values = Object.values(days);
+    const max = Math.max(...values, 1);
+    return { labels, values, max };
+  }, [activities]);
 
   return (
-    <DashboardLayout title="Dashboard">
-      {/* ── Greeting ── */}
-      <div className="mb-6">
-        <h2 className="text-xl font-bold text-gray-900">
-          {greeting}, {user?.name?.split(" ")[0] ?? "there"} 👋
-        </h2>
-        <p className="text-[13px] text-gray-400 mt-0.5">
-          Here's what's happening in <span className="font-semibold text-gray-600">{tenant?.name ?? "your workspace"}</span> today.
-        </p>
-      </div>
+    <DashboardLayout title="Dashboard" noPadding>
+      <div className="p-6 lg:p-8 space-y-6 max-w-[1500px] mx-auto">
 
-      {/* ── Stat cards ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard
-          label="Projects"
-          value={totalProjects}
-          sub="Active workspace"
-          loading={projectsLoading}
-          accent="bg-blue-50 text-blue-600"
-          icon={
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
-            </svg>
-          }
-        />
-        <StatCard
-          label="Activities"
-          value={totalActivities}
-          sub="All time events"
-          loading={activityLoading}
-          accent="bg-purple-50 text-purple-600"
-          icon={
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" />
-            </svg>
-          }
-        />
-        <StatCard
-          label="Audit Events"
-          value={totalAuditEvents}
-          sub="OWNER / ADMIN visible"
-          loading={auditLoading}
-          accent="bg-amber-50 text-amber-600"
-          icon={
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z" />
-            </svg>
-          }
-        />
-        <StatCard
-          label="Plan"
-          value={currentPlan}
-          sub={`Renews ${subEnd}`}
-          loading={subLoading}
-          accent="bg-green-50 text-green-600"
-          icon={
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
-            </svg>
-          }
-        />
-      </div>
-
-      {/* ── Main grid ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-
-        {/* Activity chart + feed */}
-        <div className="lg:col-span-2 space-y-4">
-
-          {/* Chart */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-[14px] font-semibold text-gray-900">Activity — Last 7 days</h3>
-                <p className="text-[11px] text-gray-400 mt-0.5">Team events across all projects</p>
-              </div>
-              <Badge text={activityLoading ? "…" : `${totalActivities} total`} color="gray" />
-            </div>
-            {activityLoading ? (
-              <div className="flex items-end gap-1.5 h-20">
-                {Array(7).fill(0).map((_, i) => (
-                  <div key={i} className="flex-1 bg-gray-100 rounded-t-md animate-pulse" style={{ height: `${30 + Math.random() * 50}px` }} />
-                ))}
-              </div>
-            ) : (
-              <MiniBar data={activityByDay} label="Events per day" />
-            )}
-          </div>
-
-          {/* Recent activity feed */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-[14px] font-semibold text-gray-900">Recent Activity</h3>
-              <span className="text-[11px] text-gray-400">Auto-refreshes every 30s</span>
-            </div>
-            {activityLoading ? (
-              <div className="space-y-3">
-                {Array(5).fill(0).map((_, i) => (
-                  <div key={i} className="flex gap-3">
-                    <Skeleton className="w-7 h-7 rounded-full shrink-0" />
-                    <div className="flex-1 space-y-1.5 pt-1">
-                      <Skeleton className="h-3 w-3/4" />
-                      <Skeleton className="h-2.5 w-1/2" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : activities.length === 0 ? (
-              <div className="text-center py-10">
-                <p className="text-[13px] text-gray-400">No activity yet</p>
-              </div>
-            ) : (
-              <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
-                {activities.slice(0, 20).map((a: any, i: number) => (
-                  <div key={a._id ?? i} className="flex gap-3 items-start">
-                    <div className="w-7 h-7 rounded-full bg-gray-100 text-gray-500 text-[11px] font-bold flex items-center justify-center shrink-0">
-                      {a.userId?.name?.[0]?.toUpperCase() ?? a.user?.[0]?.toUpperCase() ?? "?"}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[12px] text-gray-700 leading-snug">
-                        <span className="font-semibold">{a.userId?.name ?? a.user ?? "Someone"}</span>{" "}
-                        {a.action ?? a.description ?? a.message}
-                      </p>
-                      <p className="text-[10px] text-gray-400 mt-0.5">{formatRelative(a.createdAt ?? a.timestamp)}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+        {/* ── Header ── */}
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+          <div>
+            <p className="text-[11px] font-bold text-blue-600 uppercase tracking-[0.15em] mb-1">
+              {tenant?.name || slug}
+            </p>
+            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Dashboard</h1>
+            <p className="text-[13px] text-gray-400 mt-0.5">Overview of your workspace projects, tasks, and team.</p>
           </div>
         </div>
 
-        {/* Right column */}
-        <div className="space-y-4">
+        {/* ── Stat Cards ── */}
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+          <StatCard label="Projects" value={stats.totalProjects ?? 0} loading={loading} accent="blue" />
+          <StatCard label="Total Tasks" value={stats.totalTasks ?? 0} loading={loading} accent="violet" />
+          <StatCard label="My Tasks" value={stats.assignedTasks ?? 0} loading={loading} accent="emerald" />
+          <StatCard label="Completed" value={stats.completedTasks ?? 0} loading={loading} accent="green" />
+          <StatCard label="Overdue" value={stats.overdueTasks ?? 0} loading={loading} accent="rose" />
+        </div>
 
-          {/* Projects list */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-            <h3 className="text-[14px] font-semibold text-gray-900 mb-4">Projects</h3>
-            {projectsLoading ? (
-              <div className="space-y-2.5">
-                {Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-10" />)}
-              </div>
-            ) : projects.length === 0 ? (
-              <p className="text-[12px] text-gray-400 text-center py-6">No projects yet</p>
-            ) : (
-              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                {projects.slice(0, 10).map((p: any) => (
-                  <div key={p._id} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer group">
-                    <div className="w-7 h-7 rounded-lg bg-gray-900 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
-                      {p.name?.[0]?.toUpperCase() ?? "P"}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[12px] font-semibold text-gray-800 truncate">{p.name}</p>
-                      <p className="text-[10px] text-gray-400">{p.taskCount ?? 0} tasks</p>
-                    </div>
-                    <Badge
-                      text={p.status ?? "ACTIVE"}
-                      color={p.status === "COMPLETED" ? "green" : p.status === "ON_HOLD" ? "yellow" : "gray"}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+          {/* ── Activity Bar Chart (left 2 cols) ── */}
+          <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-[14px] font-bold text-gray-900">Activity (Last 7 Days)</h3>
+              <Link to={`/${slug}/activity`} className="text-[11px] font-bold text-blue-600 hover:underline uppercase tracking-wider">View All</Link>
+            </div>
+            <div className="flex items-end justify-between gap-3 h-[160px]">
+              {dailyActivity.labels.map((label, i) => {
+                const pct = dailyActivity.max > 0 ? (dailyActivity.values[i] / dailyActivity.max) * 100 : 0;
+                return (
+                  <div key={label} className="flex-1 flex flex-col items-center gap-2 group">
+                    <span className="text-[10px] font-bold text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">{dailyActivity.values[i]}</span>
+                    <motion.div
+                      initial={{ height: 0 }}
+                      animate={{ height: `${Math.max(pct, 4)}%` }}
+                      transition={{ duration: 0.6, delay: i * 0.05 }}
+                      className="w-full max-w-[40px] bg-blue-100 group-hover:bg-blue-500 rounded-lg transition-colors cursor-default"
                     />
+                    <span className="text-[10px] font-medium text-gray-400">{label}</span>
                   </div>
-                ))}
-              </div>
-            )}
+                );
+              })}
+            </div>
           </div>
 
-          {/* Subscription card */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-            <h3 className="text-[14px] font-semibold text-gray-900 mb-4">Subscription</h3>
-            {subLoading ? (
-              <div className="space-y-2">
-                <Skeleton className="h-4 w-1/2" />
-                <Skeleton className="h-3 w-3/4" />
-                <Skeleton className="h-3 w-2/3" />
-              </div>
+          {/* ── Activity Breakdown ── */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-6">
+            <h3 className="text-[14px] font-bold text-gray-900 mb-4">Activity Breakdown</h3>
+            {actStats.length === 0 ? (
+              <p className="text-[12px] text-gray-400 italic py-8 text-center">No activity data yet.</p>
             ) : (
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[12px] text-gray-500">Current plan</span>
-                  <Badge text={currentPlan} color={planColor(currentPlan)} />
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[12px] text-gray-500">Status</span>
-                  <Badge
-                    text={subStatus}
-                    color={subStatus === "ACTIVE" ? "green" : subStatus === "SUSPENDED" ? "red" : "yellow"}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[12px] text-gray-500">Renews</span>
-                  <span className="text-[12px] font-semibold text-gray-700">{subEnd}</span>
-                </div>
-                {subData?.autoRenew !== undefined && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-[12px] text-gray-500">Auto-renew</span>
-                    <Badge text={subData.autoRenew ? "On" : "Off"} color={subData.autoRenew ? "green" : "gray"} />
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Audit stats */}
-          <div className="bg-gray-900 rounded-2xl p-5 text-white shadow-sm">
-            <h3 className="text-[14px] font-semibold mb-3">Audit Summary</h3>
-            {auditStatsLoading ? (
-              <div className="space-y-2">
-                <Skeleton className="h-3 w-3/4 bg-gray-700" />
-                <Skeleton className="h-3 w-2/3 bg-gray-700" />
-              </div>
-            ) : (
-              <div className="space-y-2.5">
-                <div className="flex justify-between text-[12px]">
-                  <span className="text-gray-400">Total events</span>
-                  <span className="font-bold">{auditStats?.total ?? auditLogs.length}</span>
-                </div>
-                <div className="flex justify-between text-[12px]">
-                  <span className="text-gray-400">Today</span>
-                  <span className="font-bold">{auditStats?.today ?? "—"}</span>
-                </div>
-                <div className="flex justify-between text-[12px]">
-                  <span className="text-gray-400">This week</span>
-                  <span className="font-bold">{auditStats?.thisWeek ?? "—"}</span>
-                </div>
-                <div className="mt-3 pt-3 border-t border-gray-800 text-[10px] text-gray-500">
-                  Visible to OWNER &amp; ADMIN only
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Recent audit logs */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-            <h3 className="text-[14px] font-semibold text-gray-900 mb-4">Recent Audit Logs</h3>
-            {auditLoading ? (
-              <div className="space-y-2.5">
-                {Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-9" />)}
-              </div>
-            ) : auditLogs.length === 0 ? (
-              <p className="text-[12px] text-gray-400 text-center py-6">No audit logs yet</p>
-            ) : (
-              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                {auditLogs.slice(0, 10).map((log: any, i: number) => (
-                  <div key={log._id ?? i} className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-gray-50 transition-colors">
-                    <div className="w-6 h-6 rounded-md bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 mt-0.5">
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z" />
-                      </svg>
+                {actStats.slice(0, 6).map((s: any, i: number) => {
+                  const total = actStats.reduce((a: number, b: any) => a + b.count, 0);
+                  const pct = total > 0 ? Math.round((s.count / total) * 100) : 0;
+                  return (
+                    <div key={s._id}>
+                      <div className="flex justify-between text-[11px] mb-1">
+                        <span className="font-semibold text-gray-700 capitalize">{s._id?.replace(/_/g, " ").toLowerCase()}</span>
+                        <span className="font-bold text-gray-400">{s.count} ({pct}%)</span>
+                      </div>
+                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${pct}%` }}
+                          className={`h-full rounded-full ${colors[i % colors.length]}`}
+                        />
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[12px] font-semibold text-gray-700 truncate">
-                        {log.action ?? log.event ?? log.type ?? "Event"}
-                      </p>
-                      <p className="text-[10px] text-gray-400 truncate">
-                        {log.userId?.name ?? log.performedBy ?? "System"} · {formatRelative(log.createdAt ?? log.timestamp)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
         </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+          {/* ── Recent Projects ── */}
+          <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-50 flex justify-between items-center">
+              <h3 className="text-[14px] font-bold text-gray-900">Projects</h3>
+              <Link to={`/${slug}/projects`} className="text-[11px] font-bold text-blue-600 hover:underline uppercase tracking-wider">All Projects</Link>
+            </div>
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-gray-50/50">
+                  <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Name</th>
+                  <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Status</th>
+                  <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Priority</th>
+                  <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Created</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {loading ? (
+                  Array(4).fill(0).map((_, i) => (
+                    <tr key={i}><td colSpan={4} className="px-5 py-4"><div className="h-4 bg-gray-50 animate-pulse rounded" /></td></tr>
+                  ))
+                ) : projects.length === 0 ? (
+                  <tr><td colSpan={4} className="px-5 py-10 text-center text-[12px] text-gray-400">No projects yet.</td></tr>
+                ) : (
+                  projects.slice(0, 6).map((p, i) => (
+                    <tr key={p._id} className="hover:bg-gray-50/50 transition-colors cursor-pointer" onClick={() => navigate(`/${slug}/projects/${p._id}`)}>
+                      <td className="px-5 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-lg ${colors[i % colors.length]} flex items-center justify-center text-white text-[11px] font-bold`}>
+                            {p.name?.[0]?.toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="text-[13px] font-semibold text-gray-900">{p.name}</p>
+                            <p className="text-[10px] text-gray-400">PRJ-{p._id?.slice(-5).toUpperCase()}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3">
+                        <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${p.status === 'COMPLETED' ? 'bg-blue-50 text-blue-600' : p.status === 'ON_HOLD' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${p.status === 'COMPLETED' ? 'bg-blue-500' : p.status === 'ON_HOLD' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                          {p.status?.replace(/_/g, " ") || "Active"}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3">
+                        <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${p.priority === 'HIGH' || p.priority === 'URGENT' ? 'bg-rose-50 text-rose-500' : p.priority === 'MEDIUM' ? 'bg-amber-50 text-amber-600' : 'bg-gray-50 text-gray-500'}`}>
+                          {p.priority || "Normal"}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3 text-[11px] text-gray-400">{fmt(p.createdAt)}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* ── Team Members ── */}
+          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-50 flex justify-between items-center">
+              <h3 className="text-[14px] font-bold text-gray-900">Team ({members.length})</h3>
+              <Link to={`/${slug}/settings/team`} className="text-[11px] font-bold text-blue-600 hover:underline uppercase tracking-wider">Manage</Link>
+            </div>
+            <div className="divide-y divide-gray-50">
+              {loading ? (
+                Array(3).fill(0).map((_, i) => (
+                  <div key={i} className="px-5 py-3"><div className="h-8 bg-gray-50 animate-pulse rounded" /></div>
+                ))
+              ) : members.length === 0 ? (
+                <div className="px-5 py-10 text-center text-[12px] text-gray-400">No team members yet.</div>
+              ) : (
+                members.slice(0, 6).map((m, i) => (
+                  <div key={m._id || i} className="px-5 py-3 flex items-center justify-between hover:bg-gray-50/50 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-full ${colors[i % colors.length]} flex items-center justify-center text-white text-[10px] font-bold`}>
+                        {m.name?.[0]?.toUpperCase() || "U"}
+                      </div>
+                      <div>
+                        <p className="text-[12px] font-semibold text-gray-900">{m.name}</p>
+                        <p className="text-[10px] text-gray-400">{m.email}</p>
+                      </div>
+                    </div>
+                    <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded ${m.role === 'OWNER' ? 'bg-violet-50 text-violet-600' : m.role === 'ADMIN' ? 'bg-blue-50 text-blue-600' : 'bg-gray-50 text-gray-500'}`}>
+                      {m.role}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Recent Activity Feed ── */}
+        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-50 flex justify-between items-center">
+            <h3 className="text-[14px] font-bold text-gray-900">Recent Activity</h3>
+            <Link to={`/${slug}/activity`} className="text-[11px] font-bold text-blue-600 hover:underline uppercase tracking-wider">View All</Link>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {aL ? (
+              Array(3).fill(0).map((_, i) => (
+                <div key={i} className="px-5 py-4"><div className="h-6 bg-gray-50 animate-pulse rounded" /></div>
+              ))
+            ) : activities.length === 0 ? (
+              <div className="px-5 py-10 text-center text-[12px] text-gray-400">No recent activity.</div>
+            ) : (
+              activities.slice(0, 5).map((a: any, i: number) => (
+                <div key={i} className="px-5 py-3 flex items-center gap-4 hover:bg-gray-50/50 transition-colors">
+                  <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-500 shrink-0">
+                    {a.userId?.name?.[0]?.toUpperCase() ?? "S"}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[12px] text-gray-800">
+                      <span className="font-semibold">{a.userId?.name ?? "System"}</span>{" "}
+                      <span className="text-gray-500">{a.actionType || a.action || a.description}</span>
+                    </p>
+                    {a.projectId?.name && <span className="text-[10px] text-gray-400">{a.projectId.name}</span>}
+                  </div>
+                  <span className="text-[10px] text-gray-400 whitespace-nowrap">{rel(a.createdAt)}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
       </div>
     </DashboardLayout>
+  );
+};
+
+/* ── Stat Card ── */
+const StatCard = ({ label, value, loading, accent }: { label: string; value: number; loading: boolean; accent: string }) => {
+  const bg: Record<string, string> = {
+    blue: "bg-blue-50 text-blue-600",
+    violet: "bg-violet-50 text-violet-600",
+    emerald: "bg-emerald-50 text-emerald-600",
+    green: "bg-green-50 text-green-600",
+    rose: "bg-rose-50 text-rose-600",
+  };
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-sm transition-shadow">
+      {loading ? (
+        <div className="space-y-2">
+          <div className="h-3 w-16 bg-gray-50 animate-pulse rounded" />
+          <div className="h-7 w-12 bg-gray-50 animate-pulse rounded" />
+        </div>
+      ) : (
+        <>
+          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">{label}</p>
+          <div className="flex items-end gap-2">
+            <p className="text-2xl font-bold text-gray-900 leading-none">{value}</p>
+            <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${bg[accent] || bg.blue}`}>{label}</span>
+          </div>
+        </>
+      )}
+    </div>
   );
 };
 

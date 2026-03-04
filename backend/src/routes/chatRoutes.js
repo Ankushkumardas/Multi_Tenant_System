@@ -9,15 +9,20 @@ import {
   LeaveRoom,
   addParticipant,
   removePartcipant,
+  getChatMessages,
 } from "../controller/chatController.js";
+
+import { checkTenant } from "../middleware/tenantMiddleware.js";
 
 const router = express.Router({ mergeParams: true });
 
 router.use(authenticate);
+router.use(checkTenant);
 
 router.get("/", getUserRooms);
 router.post("/", createRoom);
 router.get("/:roomId", getRoomDetails);
+router.get("/:roomId/messages", getChatMessages);
 router.put("/:roomId", UpdateRoom);
 router.delete("/:roomId", DeleteRoom);
 router.post("/:roomId/leave", LeaveRoom);

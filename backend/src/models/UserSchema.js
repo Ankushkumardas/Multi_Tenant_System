@@ -8,9 +8,9 @@ const UserSchema = new mongoose.Schema(
       default: null, // SUPER_ADMIN
     },
 
-    name: { type: String, required: true },
+    name: { type: String },
     email: { type: String, required: true },
-    password: { type: String, required: true },
+    password: { type: String },
 
     role: {
       type: String,

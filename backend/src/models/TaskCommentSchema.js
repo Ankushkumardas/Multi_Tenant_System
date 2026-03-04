@@ -27,6 +27,11 @@ const taskCommentSchema = new mongoose.Schema(
       },
     ],
     message: { type: String, required: true },
+    parentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "TaskComment",
+      default: null,
+    },
   },
   { timestamps: true },
 );

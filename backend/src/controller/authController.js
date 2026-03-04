@@ -166,8 +166,8 @@ export const registerOwner = async (req, res) => {
       sendMail({
         to: email,
         subject: "Verify your email — FlowSpace",
-        text: `Click this link to verify your email: http://localhost:5174/verify-email?token=${verificationToken}`,
-        html: `<p>Hello ${name},</p><p>Click the button below to verify your email. This link expires in 10 minutes.</p><a href="http://localhost:5174/verify-email?token=${verificationToken}" style="background:#111;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;font-family:sans-serif;font-size:14px;display:inline-block;margin-top:8px">Verify Email</a>`,
+        text: `Click this link to verify your email: ${process.env.FRONTEND_URL || "http://localhost:5173"}/verify-email?token=${verificationToken}`,
+        html: `<p>Hello ${name},</p><p>Click the button below to verify your email. This link expires in 10 minutes.</p><a href="${process.env.FRONTEND_URL || "http://localhost:5173"}/verify-email?token=${verificationToken}" style="background:#111;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;font-family:sans-serif;font-size:14px;display:inline-block;margin-top:8px">Verify Email</a>`,
       }),
       newUser.save(),
     ]);
@@ -244,8 +244,8 @@ export const resendVerificationEmail = async (req, res) => {
       sendMail({
         to: email,
         subject: "Verify your email — FlowSpace",
-        text: `Click this link to verify your email: http://localhost:5174/verify-email?token=${verificationToken}`,
-        html: `<p>Click the button below to verify your email. This link expires in 10 minutes.</p><a href="http://localhost:5174/verify-email?token=${verificationToken}" style="background:#111;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;font-family:sans-serif;font-size:14px;display:inline-block;margin-top:8px">Verify Email</a>`,
+        text: `Click this link to verify your email: ${process.env.FRONTEND_URL || "http://localhost:5173"}/verify-email?token=${verificationToken}`,
+        html: `<p>Click the button below to verify your email. This link expires in 10 minutes.</p><a href="${process.env.FRONTEND_URL || "http://localhost:5173"}/verify-email?token=${verificationToken}" style="background:#111;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;font-family:sans-serif;font-size:14px;display:inline-block;margin-top:8px">Verify Email</a>`,
       }),
     ]);
     res.status(200).json({ message: "Verification email sent successfully" });
@@ -313,6 +313,8 @@ export const sendInvite = async (req, res) => {
   await Invite.create({
     tenantId,
     userId: invitedUser._id,
+    email,
+    role,
     token,
     invitedBy: userId,
     expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
@@ -323,8 +325,8 @@ export const sendInvite = async (req, res) => {
   await sendMail({
     to: email,
     subject: `Invitation to join ${tenant.name} on FlowSpace`,
-    text: `Click on the link to join our workspace: http://localhost:5173/accept-invite?token=${token}`,
-    html: `<p>You have been invited to join <b>${tenant.name}</b> on FlowSpace.</p><a href="http://localhost:5173/accept-invite?token=${token}" style="background:#111;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;font-family:sans-serif;font-size:14px;display:inline-block;margin-top:8px">Join Workspace</a>`,
+    text: `Click on the link to join our workspace: ${process.env.FRONTEND_URL || "http://localhost:5173"}/accept-invite?token=${token}`,
+    html: `<p>You have been invited to join <b>${tenant.name}</b> on FlowSpace.</p><a href="${process.env.FRONTEND_URL || "http://localhost:5173"}/accept-invite?token=${token}" style="background:#111;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;font-family:sans-serif;font-size:14px;display:inline-block;margin-top:8px">Join Workspace</a>`,
   });
 
   return res.json({ message: "Invite sent successfully" });
@@ -332,7 +334,7 @@ export const sendInvite = async (req, res) => {
 
 export const acceptInvite = async (req, res) => {
   const { name, password } = req.body;
-  const { token } = req.params || req.query;
+  const token = req.params.token || req.query.token;
   const invite = await Invite.findOne({
     token,
     isUsed: false,
@@ -595,8 +597,8 @@ export const updateProfileData = async (req, res) => {
       await sendMail({
         to: email,
         subject: "Email Verification",
-        text: `Click on the link to verify your updated email: http://localhost:3000/api/v1/auth/verify-email/${token}`,
-        html: `<a href="http://localhost:3000/api/v1/auth/verify-email/${token}">Verify Email</a>`,
+        text: `Click on the link to verify your updated email: ${process.env.FRONTEND_URL || "http://localhost:5173"}/verify-email?token=${token}`,
+        html: `<p>You updated your email. Click below to verify it.</p><a href="${process.env.FRONTEND_URL || "http://localhost:5173"}/verify-email?token=${token}" style="background:#111;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;font-family:sans-serif;font-size:14px;display:inline-block;margin-top:8px">Verify Email</a>`,
       });
     }
     user.name = name;
@@ -676,7 +678,7 @@ export const resetPassword = async (req, res) => {
     }
     user.password = await hashpassword(password);
     await user.save();
-    await emailVerification.remove();
+    await emailVerification.deleteOne();
     return res.status(200).json({ message: "Password reset successful" });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -686,24 +688,30 @@ export const resetPassword = async (req, res) => {
 export const getProfile = async (req, res) => {
   try {
     const { userId } = req.user;
-    const cacheuser = await redisClient.get(`user:profile:${userId}`);
-    if (cacheuser) {
+    const cachedData = await redisClient.get(`user:profile:${userId}`);
+
+    if (cachedData) {
+      const parsed = JSON.parse(cachedData);
       return res.status(200).json({
         message: "Profile fetched successfully from redis",
-        user: JSON.parse(cacheuser),
+        user: parsed.user,
+        tenant: parsed.tenant,
       });
     }
+
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
-    const tenant = await Tenant.findOne(user.tenantId);
+    const tenant = await Tenant.findById(user.tenantId);
+
     await redisClient.set(
       `user:profile:${userId}`,
-      JSON.stringify(user),
+      JSON.stringify({ user, tenant }),
       "EX",
       3600,
     );
+
     return res.status(200).json({
       message: "Profile fetched successfully",
       user: user,
@@ -754,6 +762,21 @@ export const getActiveSessions = async (req, res) => {
       message: "Active sessions fetched successfully for this user",
       sessions: data,
       totalSessions: data.length,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getTenantUsers = async (req, res) => {
+  try {
+    const { tenantId } = req.user;
+    const users = await User.find({ tenantId }).select(
+      "-password -refreshToken",
+    );
+    return res.status(200).json({
+      message: "Users fetched successfully",
+      users,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

@@ -27,7 +27,7 @@ dotenv.config();
 const app = express();
 app.use(
   cors({
-    origin: "http://localhost:5174",
+    origin: ["http://localhost:5174", "http://localhost:5173"],
     credentials: true,
   }),
 );
@@ -41,10 +41,10 @@ const server = http.createServer(app);
 //connectiing socket.io
 setupSocket(server, app);
 //routes
-// ── Global / non-tenant routes ──────────────────────────────────────────────
+
 app.use("/api/auth", authRoutes);
 
-// ── Tenant-scoped routes  (slug appears in every URL) ───────────────────────
+
 // Example URL: /api/:slug/admin/projects
 app.use("/api/:slug/admin", adminRoutes);
 app.use("/api/:slug/user", userRoutes);

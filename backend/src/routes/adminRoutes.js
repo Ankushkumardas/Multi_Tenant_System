@@ -5,9 +5,10 @@ import {
   sendInvite,
   updateUserRole,
   forceLogoutuser,
+  getTenantUsers,
 } from "../controller/authController.js";
 
-const router = express.Router();
+const router = express.Router({ mergeParams: true });
 
 router.post(
   "/send-invite",
@@ -32,5 +33,7 @@ router.post(
   checkTenant,
   forceLogoutuser,
 );
+
+router.get("/get-users", authenticate, checkTenant, getTenantUsers);
 
 export default router;

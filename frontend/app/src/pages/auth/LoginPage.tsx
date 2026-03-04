@@ -2,9 +2,11 @@ import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { api } from "../../lib/axios";
+import { useAuthStore } from "../../store/authStore";
 
 const LoginPage = () => {
   const navigate = useNavigate();
+  const { setUser, setTenant } = useAuthStore();
   const [showPass, setShowPass] = useState(false);
   interface LoginData {
     email: string;
@@ -21,8 +23,10 @@ const LoginPage = () => {
       return res.data;
     },
     onSuccess: (data: any) => {
-      // Store access token and navigate to tenant dashboard
+      // Store access token and populate auth store before navigating
       localStorage.setItem("token", data.accessToken);
+      setUser(data.user);
+      setTenant(data.tenant);
       navigate(`/${data.tenant.slug}/dashboard`);
     }
   })

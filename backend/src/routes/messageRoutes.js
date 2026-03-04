@@ -10,9 +10,12 @@ import {
   getThreadMessage,
 } from "../controller/messageControllers.js";
 
+import { checkTenant } from "../middleware/tenantMiddleware.js";
+
 const router = express.Router({ mergeParams: true });
 
 router.use(authenticate);
+router.use(checkTenant);
 
 router.get("/search", searchMessage);
 router.put("/:messageId", editMessage);

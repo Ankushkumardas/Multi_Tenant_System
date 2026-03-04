@@ -1,14 +1,14 @@
-import React from "react";
+import React, { type InputHTMLAttributes, type TextareaHTMLAttributes, type ReactNode } from "react";
 
 export const Skeleton = ({ className = "" }: { className?: string }) => (
-    <div className={`bg-gray-100 rounded-lg animate-pulse ${className}`} />
+    <div className={`bg-linear-to-r from-gray-50 via-gray-100 to-gray-50 bg-size-[200%_100%] animate-shimmer rounded-3xl ${className}`} />
 );
 
 export const TrafficLights = () => (
     <div className="flex gap-1.5 px-1">
-        <div className="w-2.5 h-2.5 rounded-full bg-[#FF5F56] shadow-sm shadow-red-500/20" />
-        <div className="w-2.5 h-2.5 rounded-full bg-[#FFBD2E] shadow-sm shadow-yellow-500/20" />
-        <div className="w-2.5 h-2.5 rounded-full bg-[#27C93F] shadow-sm shadow-green-500/20" />
+        <div className="w-2.5 h-2.5 rounded-full bg-[#FF5F56] shadow-sm shadow-red-500/10" />
+        <div className="w-2.5 h-2.5 rounded-full bg-[#FFBD2E] shadow-sm shadow-yellow-500/10" />
+        <div className="w-2.5 h-2.5 rounded-full bg-[#27C93F] shadow-sm shadow-green-500/10" />
     </div>
 );
 
@@ -17,15 +17,15 @@ export const formatDate = (d?: string) =>
 
 export const Badge = ({ text, color = "gray" }: { text: string; color?: string }) => {
     const map: Record<string, string> = {
-        gray: "bg-gray-100 text-gray-600",
-        green: "bg-green-50 text-green-700",
-        red: "bg-red-50 text-red-600",
-        yellow: "bg-yellow-50 text-yellow-700",
-        blue: "bg-blue-50 text-blue-700",
-        purple: "bg-purple-50 text-purple-700",
+        gray: "bg-gray-50 text-gray-500 border-gray-100",
+        green: "bg-emerald-50 text-emerald-600 border-emerald-100",
+        red: "bg-rose-50 text-rose-600 border-rose-100",
+        yellow: "bg-amber-50 text-amber-600 border-amber-100",
+        blue: "bg-blue-50 text-blue-600 border-blue-100",
+        purple: "bg-indigo-50 text-indigo-600 border-indigo-100",
     };
     return (
-        <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${map[color] ?? map.gray}`}>{text}</span>
+        <span className={`px-3 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest border transition-colors ${map[color] ?? map.gray}`}>{text}</span>
     );
 };
 
@@ -38,32 +38,42 @@ export const statusColor: Record<string, string> = {
 };
 
 export const statusDot: Record<string, string> = {
-    ACTIVE: "bg-green-500", COMPLETED: "bg-blue-500", ON_HOLD: "bg-yellow-500", ARCHIVED: "bg-gray-400", CANCELLED: "bg-red-500",
+    ACTIVE: "bg-emerald-500", COMPLETED: "bg-blue-500", ON_HOLD: "bg-amber-500", ARCHIVED: "bg-gray-400", CANCELLED: "bg-rose-500",
 };
 
-export const Input = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
-    <input {...props} className={`w-full h-9 px-3 text-[13px] bg-white border border-gray-200 rounded-lg outline-none text-gray-900 placeholder-gray-300 focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10 transition-all ${props.className ?? ""}`} />
+export const Input = (props: InputHTMLAttributes<HTMLInputElement>) => (
+    <input {...props} className={`w-full h-10 px-4 text-sm bg-gray-50 border border-transparent rounded-xl outline-none focus:bg-white focus:border-gray-200 transition-all ${props.className ?? ""}`} />
 );
 
-export const Textarea = (props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => (
-    <textarea {...props} rows={3} className={`w-full px-3 py-2 text-[13px] bg-white border border-gray-200 rounded-lg outline-none text-gray-900 placeholder-gray-300 focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10 transition-all resize-none ${props.className ?? ""}`} />
+export const Textarea = (props: TextareaHTMLAttributes<HTMLTextAreaElement>) => (
+    <textarea {...props} rows={3} className={`w-full px-4 py-2 text-sm bg-gray-50 border border-transparent rounded-xl outline-none focus:bg-white focus:border-gray-200 transition-all resize-none ${props.className ?? ""}`} />
 );
 
-export const Label = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
-    <label className={`block text-[11px] font-medium text-gray-500 mb-1 uppercase tracking-wide ${className}`}>{children}</label>
+export const Label = ({ children, className = "" }: { children: ReactNode; className?: string }) => (
+    <label className={`block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider ${className}`}>{children}</label>
 );
 
-export const Modal = ({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-        <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md p-6 z-10">
-            <div className="flex items-center justify-between mb-5 border-b border-gray-50 pb-4 -mx-6 px-6">
-                <h2 className="text-[14px] font-medium text-gray-900 uppercase tracking-wider">{title}</h2>
-                <button onClick={onClose} className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 transition-colors">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
+export const Modal = ({ title, onClose, children, size = "md" }: { title: string; onClose: () => void; children: ReactNode; size?: "sm" | "md" | "lg" | "xl" }) => {
+    const maxWidths = {
+        sm: "max-w-sm",
+        md: "max-w-md",
+        lg: "max-w-2xl",
+        xl: "max-w-5xl"
+    };
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" onClick={onClose} />
+            <div className={`relative bg-white rounded-2xl shadow-xl w-full ${maxWidths[size]} max-h-[90vh] flex flex-col z-10`}>
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-50">
+                    <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+                    <button onClick={onClose} className="p-2 text-gray-400 hover:bg-gray-50 rounded-lg transition-colors">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-6">
+                    {children}
+                </div>
             </div>
-            {children}
         </div>
-    </div>
-);
+    );
+};

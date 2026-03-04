@@ -11,7 +11,17 @@ export const useActivityFeed = () => {
             const res = await api.get(`/${slug}/activity`);
             return res.data;
         },
-        // refetchInterval: 30_000, // auto-refresh every 30s
+    });
+};
+
+export const useActivityStats = () => {
+    const { slug } = useParams();
+    return useQuery({
+        queryKey: ["activity-stats", slug],
+        queryFn: async () => {
+            const res = await api.get(`/${slug}/activity/stats`);
+            return res.data;
+        },
     });
 };
 
@@ -24,6 +34,7 @@ export const useAuditLogs = () => {
         queryKey: ["audit", slug],
         queryFn: async () => {
             const res = await api.get(`/${slug}/audit`);
+            // console.log("Fetched audit logs:", res.data);
             return res.data;
         },
     });
@@ -35,6 +46,7 @@ export const useAuditStats = () => {
         queryKey: ["audit-stats", slug],
         queryFn: async () => {
             const res = await api.get(`/${slug}/audit/stats`);
+            console.log("Fetched audit stats:", res.data);
             return res.data;
         },
     });
@@ -77,6 +89,54 @@ export const useProfile = () => {
             return res.data;
         },
         // staleTime: 5 * 60_000,
+    });
+};
+
+// ── Dashboard Stats ───────────────────────────────────────────────────────────
+export const useDashboardStats = () => {
+    const { slug } = useParams();
+    return useQuery({
+        queryKey: ["dashboard-stats", slug],
+        queryFn: async () => {
+            const res = await api.get(`/${slug}/activity/dashboard-stats`);
+            return res.data;
+        },
+    });
+};
+
+// ── Workspace Members ─────────────────────────────────────────────────────────
+export const useWorkspaceMembers = () => {
+    const { slug } = useParams();
+    return useQuery({
+        queryKey: ["workspace-members", slug],
+        queryFn: async () => {
+            const res = await api.get(`/${slug}/admin/get-users`);
+            return res.data;
+        },
+    });
+};
+
+// ── Assigned Tasks ────────────────────────────────────────────────────────────
+export const useAssignedTasks = () => {
+    const { slug } = useParams();
+    return useQuery({
+        queryKey: ["assigned-tasks", slug],
+        queryFn: async () => {
+            const res = await api.get(`/${slug}/activity/assigned-tasks`);
+            return res.data;
+        },
+    });
+};
+
+// ── Plans ──────────────────────────────────────────────────────────────────────
+export const usePlans = () => {
+    const { slug } = useParams();
+    return useQuery({
+        queryKey: ["plans", slug],
+        queryFn: async () => {
+            const { data } = await api.get(`/${slug}/subscription/plans`);
+            return data;
+        },
     });
 };
 
