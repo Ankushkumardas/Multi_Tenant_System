@@ -1,0 +1,1 @@
+import { UseQueryResult } from "@tanstack/react-query"; // Updated import to use the correct package name

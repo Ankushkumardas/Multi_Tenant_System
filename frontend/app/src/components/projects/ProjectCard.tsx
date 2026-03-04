@@ -1,27 +1,31 @@
 import { motion } from "framer-motion";
+import { useState } from "react";
 
 interface ProjectCardProps {
     project: any;
     onClick: () => void;
     onEdit?: (e: React.MouseEvent) => void;
+    onDelete?: (id: string) => void;
 }
 
-export const ProjectCard = ({ project, onClick, onEdit }: ProjectCardProps) => {
-    // Generate a consistent pseudo-random gradient based on project ID
-    // const gradients = [
-    //     "from-blue-600 to-indigo-700",
-    //     "from-emerald-500 to-teal-700",
-    //     "from-amber-400 to-orange-600",
-    //     "from-rose-500 to-pink-700",
-    //     "from-violet-600 to-purple-800",
-    //     "from-cyan-500 to-blue-700"
-    // ];
-    // const gradientIdx = (project._id || "0").charCodeAt(0) % gradients.length;
-    // const gradient = gradients[gradientIdx];
+export const ProjectCard = ({ project, onClick, onEdit, onDelete }: ProjectCardProps) => {
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-    const completedTasks = project.completedTasks ?? 0;
-    const totalTasks = project.totalTasks ?? 0;
-    const progress = totalTasks > 0 ? Math.min(Math.round((completedTasks / totalTasks) * 100), 100) : 0;
+    const handleDelete = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setShowDeleteConfirm(true);
+    };
+
+    const confirmDelete = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        onDelete?.(project.id); // Added optional chaining to handle undefined
+        setShowDeleteConfirm(false);
+    };
+
+    const cancelDelete = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setShowDeleteConfirm(false);
+    };
 
     const formatDate = (date: string) => {
         if (!date) return "Just now";
@@ -29,40 +33,52 @@ export const ProjectCard = ({ project, onClick, onEdit }: ProjectCardProps) => {
         return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     };
 
+    const completedTasks = project.completedTasks ?? 0;
+    const totalTasks = project.totalTasks ?? 0;
+    const progress = totalTasks > 0 ? Math.min(Math.round((completedTasks / totalTasks) * 100), 100) : 0;
+
     return (
         <motion.div
             whileHover={{ y: -4 }}
             onClick={onClick}
             className="flex flex-col bg-white rounded-2xl border border-gray-100 overflow-hidden cursor-pointer group transition-all"
         >
-            {/* Project Header / Image */}
-            {/* <div className={`h-32 w-full bg-linear-to-br ${gradient} p-6 flex flex-col justify-end relative`}>
-                {project.status === 'ARCHIVED' && (
-                    <div className="absolute top-3 right-3 px-2 py-0.5 bg-black/20 backdrop-blur-md rounded text-[10px] font-medium text-white uppercase tracking-wider">
-                        Archived
-                    </div>
-                )}
-            </div> */}
-
-            {/* Project Content */}
             <div className="p-6 space-y-4">
                 <div className="flex justify-between items-start">
                     <div>
                         <h3 className="text-[15px] font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">{project.name}</h3>
                         <p className="text-[11px] text-gray-400 mt-0.5">Created {formatDate(project.createdAt)}</p>
                     </div>
-                    {onEdit && (
+                    <div className="flex gap-2">
+                        {onEdit && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onEdit?.(e); // Added optional chaining to handle undefined
+                                }}
+                                className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                            </button>
+                        )}
                         <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onEdit(e);
-                            }}
-                            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                            onClick={handleDelete}
+                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
                         >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
-                    )}
+                    </div>
                 </div>
+
+                {showDeleteConfirm && (
+                    <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                        <p className="text-sm text-red-600">Are you sure you want to delete this project?</p>
+                        <div className="flex justify-end gap-2 mt-2">
+                            <button onClick={cancelDelete} className="px-3 py-1 text-sm text-gray-600 bg-gray-100 rounded-lg">Cancel</button>
+                            <button onClick={confirmDelete} className="px-3 py-1 text-sm text-white bg-red-600 rounded-lg">Delete</button>
+                        </div>
+                    </div>
+                )}
 
                 <div className="flex items-center gap-2 text-[12px] text-gray-500">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197" /></svg>

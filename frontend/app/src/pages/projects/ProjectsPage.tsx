@@ -21,6 +21,24 @@ const ProjectsPage = () => {
         setSelectedProject(p);
     };
 
+    const handleDelete = async (projectId: string) => {
+        if (window.confirm("Are you sure you want to delete this project?")) {
+            try {
+                // Call API to delete project
+                await fetch(`/api/projects/${projectId}`, {
+                    method: "DELETE",
+                });
+
+                // Optionally, refresh the project list after deletion
+                alert("Project deleted successfully.");
+                window.location.reload();
+            } catch (error) {
+                console.error("Failed to delete project:", error);
+                alert("Failed to delete project. Please try again.");
+            }
+        }
+    };
+
     const allProjects: any[] = projectsData?.projects ?? projectsData ?? [];
     const isOwner = user?.role === "OWNER" || user?.role === "ADMIN";
 
@@ -93,6 +111,7 @@ const ProjectsPage = () => {
                                 project={p}
                                 onClick={() => navigate(`/${slug}/projects/${p._id}`)}
                                 onEdit={isOwner ? () => handleEdit(p) : undefined}
+                                onDelete={isOwner ? () => handleDelete(p._id) : undefined}
                             />
                         ))}
                     </div>

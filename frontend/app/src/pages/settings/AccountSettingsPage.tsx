@@ -49,7 +49,7 @@ const AccountSettingsPage = () => {
         }
     });
 
-    const { data: tenantSettingsData, isLoading: tenantSettingsLoading } = useQuery({
+    const { data: tenantSettingsData } = useQuery({
         queryKey: ["tenant-settings", slug],
         queryFn: async () => {
             const res = await api.get(`/${slug}/admin/settings`);
