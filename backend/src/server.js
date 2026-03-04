@@ -27,7 +27,11 @@ dotenv.config();
 const app = express();
 app.use(
   cors({
-    origin: ["http://localhost:5174", "http://localhost:5173"],
+    origin: [
+      "http://localhost:5174",
+      "http://localhost:5173",
+      process.env.FRONTEND_URL,
+    ],
     credentials: true,
   }),
 );
@@ -43,7 +47,6 @@ setupSocket(server, app);
 //routes
 
 app.use("/api/auth", authRoutes);
-
 
 // Example URL: /api/:slug/admin/projects
 app.use("/api/:slug/admin", adminRoutes);
