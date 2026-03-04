@@ -4,6 +4,10 @@ const TenantSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
     slug: { type: String, unique: true },
+    industry: { type: String },
+    website: { type: String },
+    description: { type: String },
+    logoUrl: { type: String },
     currentSubscription: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "TenantSubscription",

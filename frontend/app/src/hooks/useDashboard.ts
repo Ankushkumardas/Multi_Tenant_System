@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 import { api } from "../lib/axios";
 
@@ -134,6 +134,27 @@ export const useAssignedTasks = () => {
         queryKey: ["assigned-tasks", slug],
         queryFn: async () => {
             const res = await api.get(`/${slug}/activity/assigned-tasks`);
+            return res.data;
+        },
+    });
+};
+// ── Tenant / Workspace Settings ───────────────────────────────────────────────
+export const useGetTenantSettings = () => {
+    const { slug } = useParams();
+    return useQuery({
+        queryKey: ["tenant-settings", slug],
+        queryFn: async () => {
+            const res = await api.get(`/${slug}/admin/settings`);
+            return res.data;
+        },
+    });
+};
+
+export const useUpdateTenantSettings = () => {
+    const { slug } = useParams();
+    return useMutation({
+        mutationFn: async (data: { name: string; industry?: string; website?: string; description?: string; logoUrl?: string }) => {
+            const res = await api.put(`/${slug}/admin/settings`, data);
             return res.data;
         },
     });

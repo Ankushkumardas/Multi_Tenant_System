@@ -7,6 +7,7 @@ import {
   forceLogoutuser,
   getTenantUsers,
   revokeInvite,
+  resendInvite,
 } from "../controller/authController.js";
 import {
   getTenantSettings,
@@ -62,6 +63,14 @@ router.post(
   checkTenant,
   authorize("OWNER", "ADMIN"),
   revokeInvite,
+);
+
+router.post(
+  "/resend-invite/:inviteId",
+  authenticate,
+  checkTenant,
+  authorize("OWNER", "ADMIN"),
+  resendInvite,
 );
 
 export default router;

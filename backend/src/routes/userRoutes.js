@@ -7,6 +7,7 @@ import {
   getActiveSessions,
   changePasword,
   updateTenantSlug,
+  revokeSession,
 } from "../controller/authController.js";
 import { rateLimiter } from "../middleware/ratelimiter.js";
 
@@ -43,6 +44,7 @@ router.post(
   changePasword,
 );
 
+router.delete("/sessions/:sessionId", authenticate, checkTenant, revokeSession);
 router.put("/workspace", authenticate, checkTenant, updateTenantSlug);
 
 export default router;

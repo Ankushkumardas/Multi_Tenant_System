@@ -36,8 +36,8 @@ const MembersPage = () => {
     });
 
     const updateRoleMutation = useMutation({
-        mutationFn: async ({ userId, role }: { userId: string, role: string }) => {
-            const res = await api.put(`/${slug}/admin/update-role`, { userId, role, status: "ACTIVE" });
+        mutationFn: async ({ userId, role, status }: { userId: string, role: string, status?: string }) => {
+            const res = await api.put(`/${slug}/admin/update-role`, { userId, role, status: status || "ACTIVE" });
             return res.data;
         },
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ["workspace-members", slug] }),
@@ -46,6 +46,11 @@ const MembersPage = () => {
     const removeUserMutation = useMutation({
         mutationFn: async (userId: string) => api.post(`/${slug}/admin/force-logout/${userId}`),
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ["workspace-members", slug] }),
+    });
+
+    const resendInviteMutation = useMutation({
+        mutationFn: async (inviteId: string) => api.post(`/${slug}/admin/resend-invite/${inviteId}`),
+        onSuccess: () => alert("Invitation resent!"),
     });
 
     const revokeInviteMutation = useMutation({
@@ -216,10 +221,19 @@ const MembersPage = () => {
                                     </td>
                                     <td className="px-6 py-4 text-right opacity-0 group-hover:opacity-100 transition-opacity">
                                         <div className="flex items-center justify-end gap-3 text-gray-400">
-                                            <button className="hover:text-gray-900 transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg></button>
-                                            <button className="hover:text-blue-600 transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg></button>
+                                            <button
+                                                onClick={() => updateRoleMutation.mutate({ userId: member._id, role: member.role, status: member.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE' })}
+                                                title={member.status === 'ACTIVE' ? "Suspend User" : "Activate User"}
+                                                className={`transition-colors ${member.status === 'ACTIVE' ? 'hover:text-amber-600' : 'hover:text-green-600'}`}
+                                            >
+                                                {member.status === 'ACTIVE' ? (
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                                                ) : (
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                                )}
+                                            </button>
                                             {member._id !== user?._id && member.role !== 'OWNER' && (
-                                                <button onClick={() => removeUserMutation.mutate(member._id)} className="hover:text-red-600 transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
+                                                <button onClick={() => removeUserMutation.mutate(member._id)} title="Force Logout" className="hover:text-red-600 transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
                                             )}
                                         </div>
                                     </td>
@@ -261,7 +275,13 @@ const MembersPage = () => {
                                         </div>
                                     </div>
                                     <div className="flex gap-2">
-                                        <button className="px-3 py-1.5 border border-gray-200 text-gray-700 text-xs font-semibold rounded hover:bg-gray-50 transition-colors">Resend</button>
+                                        <button
+                                            onClick={() => resendInviteMutation.mutate(invite._id)}
+                                            disabled={resendInviteMutation.isPending}
+                                            className="px-3 py-1.5 border border-gray-200 text-gray-700 text-xs font-semibold rounded hover:bg-gray-50 transition-colors disabled:opacity-50"
+                                        >
+                                            {resendInviteMutation.isPending ? "Sending..." : "Resend"}
+                                        </button>
                                         <button onClick={() => revokeInviteMutation.mutate(invite._id)} className="px-3 py-1.5 border border-red-100 text-red-600 text-xs font-semibold rounded hover:bg-red-50 transition-colors">Revoke</button>
                                     </div>
                                 </div>

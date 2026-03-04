@@ -656,11 +656,9 @@ export const updateTenantSlug = async (req, res) => {
     if (newSlug && newSlug !== tenant.slug) {
       const existing = await Tenant.findOne({ slug: newSlug });
       if (existing) {
-        return res
-          .status(400)
-          .json({
-            message: "Choose a different workspace URL, this one is taken",
-          });
+        return res.status(400).json({
+          message: "Choose a different workspace URL, this one is taken",
+        });
       }
       tenant.slug = newSlug;
     }
@@ -867,5 +865,72 @@ export const revokeInvite = async (req, res) => {
     return res.status(200).json({ message: "Invite revoked successfully" });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+export const resendInvite = async (req, res) => {
+  try {
+    const { inviteId } = req.params;
+    const { tenantId, userId } = req.user;
+
+    const invite = await Invite.findOne({
+      _id: inviteId,
+      tenantId,
+      isUsed: false,
+    });
+    if (!invite) {
+      return res
+        .status(404)
+        .json({ message: "Invite not found or already accepted" });
+    }
+
+    // Refresh token and expiry
+    const newToken = crypto.randomBytes(32).toString("hex");
+    invite.token = newToken;
+    invite.expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    invite.invitedBy = userId;
+    await invite.save();
+
+    const tenant = await Tenant.findById(tenantId);
+
+    await sendMail({
+      to: invite.email,
+      subject: `Resending: Invitation to join ${tenant.name} on FlowSpace`,
+      text: `Click on the link to join our workspace: ${process.env.FRONTEND_URL || "http://localhost:5173"}/accept-invite?token=${newToken}`,
+      html: `<p>You have a pending invitation to join <b>${tenant.name}</b> on FlowSpace.</p>
+             <a href="${process.env.FRONTEND_URL || "http://localhost:5173"}/accept-invite?token=${newToken}" 
+                style="background:#111;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;font-family:sans-serif;font-size:14px;display:inline-block;margin-top:8px">Join Workspace</a>`,
+    });
+
+    return res.status(200).json({ message: "Invitation resent successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Function to revoke a session
+export const revokeSession = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+
+    if (!sessionId) {
+      return res.status(400).json({ message: "Session ID is required" });
+    }
+
+    // Assuming sessions are stored in Redis
+    const sessionKey = `session:${sessionId}`;
+    const sessionExists = await redisClient.exists(sessionKey);
+
+    if (!sessionExists) {
+      return res.status(404).json({ message: "Session not found" });
+    }
+
+    // Delete the session from Redis
+    await redisClient.del(sessionKey);
+
+    return res.status(200).json({ message: "Session revoked successfully" });
+  } catch (error) {
+    console.error("Error revoking session:", error);
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
