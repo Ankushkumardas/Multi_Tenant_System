@@ -12,3 +12,6 @@ work_flow.
 schema_diagram.md
 Work_flow.md
 Schema_diagram.md
+
+
+render redis connection string --> redis://red-d6k8dcnafjfc738b1h7g:6379
