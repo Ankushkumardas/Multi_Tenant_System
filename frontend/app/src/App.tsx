@@ -26,6 +26,7 @@ import ProjectMapDetailPage from './pages/settings/ProjectMapDetailPage';
 import TenantRoute from './router/TenantRoute';
 import RoleRoute from './router/RoleRoute';
 import { Navigate } from 'react-router-dom';
+import { AlertProvider } from './components/ui/AlertProvider';
 
 const App = () => {
   return (
@@ -74,6 +75,7 @@ const App = () => {
           </Route>
         </Route>
       </Routes>
+      <AlertProvider />
     </BrowserRouter>
   )
 }

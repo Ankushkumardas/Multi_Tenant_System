@@ -5,11 +5,13 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/axios";
 import { useParams } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
+import { useAlertStore } from "../../store/alertStore";
 
 const MembersPage = () => {
     const { slug } = useParams();
     const { user } = useAuthStore();
     const queryClient = useQueryClient();
+    const { success } = useAlertStore();
 
     const { data: teamData, isLoading } = useWorkspaceMembers();
     const members = teamData?.users ?? [];
@@ -50,7 +52,7 @@ const MembersPage = () => {
 
     const resendInviteMutation = useMutation({
         mutationFn: async (inviteId: string) => api.post(`/${slug}/admin/resend-invite/${inviteId}`),
-        onSuccess: () => alert("Invitation resent!"),
+        onSuccess: () => success("Invitation resent!"),
     });
 
     const revokeInviteMutation = useMutation({

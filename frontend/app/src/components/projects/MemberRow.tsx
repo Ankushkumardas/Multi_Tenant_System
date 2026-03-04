@@ -1,5 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { api } from "../../lib/axios";
+import { useAlertStore } from "../../store/alertStore";
 
 interface MemberRowProps {
     member: any;
@@ -13,6 +14,7 @@ export const MemberRow = ({ member, projectId, slug, qc, isOwnerOrAdmin }: Membe
     const name = member.userId?.name ?? member.name ?? "Member";
     const email = member.userId?.email ?? member.email ?? "";
     const role = member.role ?? "MEMBER";
+    const { showConfirm, success } = useAlertStore();
 
     const removeMutation = useMutation({
         mutationFn: async () => {
@@ -20,7 +22,10 @@ export const MemberRow = ({ member, projectId, slug, qc, isOwnerOrAdmin }: Membe
             const res = await api.delete(`/${slug}/projects/${projectId}/remove-member`, { data: { userId } });
             return res.data;
         },
-        onSuccess: () => qc.invalidateQueries({ queryKey: ["project-members", slug, projectId] }),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["project-members", slug, projectId] });
+            success("Member removed");
+        },
     });
 
     const roleUpdateMutation = useMutation({
@@ -68,7 +73,13 @@ export const MemberRow = ({ member, projectId, slug, qc, isOwnerOrAdmin }: Membe
 
                 {isOwnerOrAdmin && !isOwner && (
                     <button
-                        onClick={() => { if (window.confirm(`Remove ${name}?`)) removeMutation.mutate(); }}
+                        onClick={() => showConfirm({
+                            title: "Remove Member",
+                            message: `${name} will be removed from this project.`,
+                            confirmLabel: "Remove",
+                            danger: true,
+                            onConfirm: () => removeMutation.mutate(),
+                        })}
                         className="w-8 h-8 flex items-center justify-center rounded-xl text-gray-300 hover:text-red-500 transition-all"
                     >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>

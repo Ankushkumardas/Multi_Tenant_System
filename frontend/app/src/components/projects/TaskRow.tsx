@@ -4,6 +4,7 @@ import { api } from "../../lib/axios";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import TaskDetailPanel from "./TaskDetailPanel";
+import { useAlertStore } from "../../store/alertStore";
 
 interface TaskRowProps {
     task: any;
@@ -16,6 +17,7 @@ interface TaskRowProps {
 
 export const TaskRow = ({ task, projectId, slug, qc, projectMembers, sections }: TaskRowProps) => {
     const [showDetail, setShowDetail] = useState(false);
+    const { showConfirm, success, error: showError } = useAlertStore();
 
     // ── dnd-kit sortable ──────────────────────────────────────────────────────
     const {
@@ -38,7 +40,11 @@ export const TaskRow = ({ task, projectId, slug, qc, projectMembers, sections }:
             const res = await api.delete(`/${slug}/projects/${projectId}/tasks/${task._id}`);
             return res.data;
         },
-        onSuccess: () => qc.invalidateQueries({ queryKey: ["board", slug, projectId] }),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["board", slug, projectId] });
+            success("Task deleted");
+        },
+        onError: () => showError("Failed to delete task"),
     });
 
     return (
@@ -82,7 +88,16 @@ export const TaskRow = ({ task, projectId, slug, qc, projectMembers, sections }:
 
                 <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
                     <button
-                        onClick={(e) => { e.stopPropagation(); if (window.confirm("Delete task?")) deleteTaskMutation.mutate(); }}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            showConfirm({
+                                title: "Delete Task",
+                                message: `"${task.title}" will be permanently deleted.`,
+                                confirmLabel: "Delete",
+                                danger: true,
+                                onConfirm: () => deleteTaskMutation.mutate(),
+                            });
+                        }}
                         className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
                     >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>

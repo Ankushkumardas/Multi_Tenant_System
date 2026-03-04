@@ -6,12 +6,14 @@ import { MemberRow } from "../../components/projects/MemberRow";
 import { useState } from "react";
 import { api } from "../../lib/axios";
 import { motion } from "framer-motion";
+import { useAlertStore } from "../../store/alertStore";
 
 const ProjectMembers = () => {
     const { slug, projectId } = useParams();
     const qc = useQueryClient();
     const navigate = useNavigate();
     const { user } = useAuthStore();
+    const { showConfirm } = useAlertStore();
 
     const { data: membersData } = useProjectMembers(projectId!);
     const { data: projectData } = useProjectById(projectId!);
@@ -174,7 +176,13 @@ const ProjectMembers = () => {
                                     <p className="text-[11px] text-red-600/70 mt-0.5 leading-tight font-medium">Permanent action. Cannot be undone.</p>
                                 </div>
                                 <button
-                                    onClick={() => { if (window.confirm("Delete this project permanently?")) deleteMutation.mutate(); }}
+                                    onClick={() => showConfirm({
+                                        title: "Delete Project",
+                                        message: `"${project?.name}" will be permanently deleted. This cannot be undone.`,
+                                        confirmLabel: "Delete",
+                                        danger: true,
+                                        onConfirm: () => deleteMutation.mutate(),
+                                    })}
                                     className="h-9 px-4 bg-red-600 text-white text-[11px] font-bold rounded-xl hover:bg-red-700 transition-colors uppercase tracking-wider shrink-0 shadow-sm shadow-red-600/20"
                                 >
                                     {deleteMutation.isPending ? "…" : "Delete"}

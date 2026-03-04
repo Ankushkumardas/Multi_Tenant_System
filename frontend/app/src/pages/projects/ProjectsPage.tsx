@@ -6,6 +6,7 @@ import { Skeleton } from "../../components/projects/ProjectUI";
 import { ProjectCard } from "../../components/projects/ProjectCard";
 import { ProjectFormModal } from "../../components/projects/ProjectFormModal";
 import { useNavigate, useParams } from "react-router-dom";
+import { useAlertStore } from "../../store/alertStore";
 
 const ProjectsPage = () => {
     const { user } = useAuthStore();
@@ -16,27 +17,28 @@ const ProjectsPage = () => {
     const [selectedProject, setSelectedProject] = useState<any>(null);
     const navigate = useNavigate();
     const { slug } = useParams();
+    const { showConfirm, success, error: showError } = useAlertStore();
 
     const handleEdit = (p: any) => {
         setSelectedProject(p);
     };
 
     const handleDelete = async (projectId: string) => {
-        if (window.confirm("Are you sure you want to delete this project?")) {
-            try {
-                // Call API to delete project
-                await fetch(`/api/projects/${projectId}`, {
-                    method: "DELETE",
-                });
-
-                // Optionally, refresh the project list after deletion
-                alert("Project deleted successfully.");
-                window.location.reload();
-            } catch (error) {
-                console.error("Failed to delete project:", error);
-                alert("Failed to delete project. Please try again.");
-            }
-        }
+        showConfirm({
+            title: "Delete Project",
+            message: "This project will be permanently deleted. This action cannot be undone.",
+            confirmLabel: "Delete",
+            danger: true,
+            onConfirm: async () => {
+                try {
+                    await fetch(`/api/projects/${projectId}`, { method: "DELETE" });
+                    success("Project deleted successfully.");
+                    window.location.reload();
+                } catch {
+                    showError("Failed to delete project. Please try again.");
+                }
+            },
+        });
     };
 
     const allProjects: any[] = projectsData?.projects ?? projectsData ?? [];

@@ -7,6 +7,7 @@ import { useProjectById, useProjectMembers, useBoard } from "../../hooks/useProj
 import { Skeleton, Badge, formatDate, statusColor, Input } from "./ProjectUI";
 import { TaskRow } from "./TaskRow";
 import { MemberRow } from "./MemberRow";
+import { useAlertStore } from "../../store/alertStore";
 
 interface ProjectDetailPanelProps {
     projectId: string;
@@ -17,6 +18,7 @@ export const ProjectDetailPanel = ({ projectId, onClose }: ProjectDetailPanelPro
     const { slug } = useParams();
     const qc = useQueryClient();
     const { user } = useAuthStore();
+    const { showConfirm, success } = useAlertStore();
     const { data: projectData, isLoading } = useProjectById(projectId);
     const { data: membersData, isLoading: membersLoading } = useProjectMembers(projectId);
     const { data: boardData, isLoading: boardLoading } = useBoard(projectId);
@@ -69,7 +71,11 @@ export const ProjectDetailPanel = ({ projectId, onClose }: ProjectDetailPanelPro
             const res = await api.delete(`/${slug}/projects/${projectId}`);
             return res.data;
         },
-        onSuccess: () => { qc.invalidateQueries({ queryKey: ["projects", slug] }); onClose(); },
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["projects", slug] });
+            success("Project deleted");
+            onClose();
+        },
     });
 
     const [activeTab, setActiveTab] = useState<"overview" | "tasks" | "members">("overview");
@@ -100,7 +106,13 @@ export const ProjectDetailPanel = ({ projectId, onClose }: ProjectDetailPanelPro
                                         {archiveMutation.isPending ? "…" : project?.isArchived ? "Unarchive" : "Archive"}
                                     </button>
                                     <button
-                                        onClick={() => { if (window.confirm("Delete this project?")) deleteMutation.mutate(); }}
+                                        onClick={() => showConfirm({
+                                            title: "Delete Project",
+                                            message: `"${project?.name}" will be permanently deleted. This cannot be undone.`,
+                                            confirmLabel: "Delete",
+                                            danger: true,
+                                            onConfirm: () => deleteMutation.mutate(),
+                                        })}
                                         className="text-[11px] px-2.5 py-1 rounded-lg border border-red-100 text-red-500 hover:bg-red-50 transition-all"
                                     >
                                         Delete

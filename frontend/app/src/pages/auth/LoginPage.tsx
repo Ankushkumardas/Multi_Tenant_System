@@ -3,10 +3,12 @@ import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { api } from "../../lib/axios";
 import { useAuthStore } from "../../store/authStore";
+import { useAlertStore } from "../../store/alertStore";
 
 const LoginPage = () => {
   const navigate = useNavigate();
   const { setUser, setTenant } = useAuthStore();
+  const { error: showError } = useAlertStore();
   const [showPass, setShowPass] = useState(false);
   interface LoginData {
     email: string;
@@ -23,12 +25,14 @@ const LoginPage = () => {
       return res.data;
     },
     onSuccess: (data: any) => {
-      // Store access token and populate auth store before navigating
       localStorage.setItem("token", data.accessToken);
       setUser(data.user);
       setTenant(data.tenant);
       navigate(`/${data.tenant.slug}/dashboard`);
-    }
+    },
+    onError: (err: any) => {
+      showError(err?.response?.data?.message || "Invalid email or password. Please try again.");
+    },
   })
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -216,12 +220,6 @@ const LoginPage = () => {
               )}
             </button>
 
-            {/* Error */}
-            {mutation.isError && (
-              <p className="text-[12px] text-red-500 text-center mt-1">
-                Invalid email or password. Please try again.
-              </p>
-            )}
           </form>
 
 

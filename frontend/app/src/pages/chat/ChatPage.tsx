@@ -6,10 +6,12 @@ import { io } from "socket.io-client";
 import { motion, AnimatePresence } from "framer-motion";
 import { CreateRoomModal } from "../../components/chat/CreateRoomModal";
 import { useWorkspaceMembers } from "../../hooks/useDashboard";
+import { useAlertStore } from "../../store/alertStore";
 
 const ChatPage = () => {
     const { user, tenant } = useAuthStore();
     const slug = tenant?.slug;
+    const { showConfirm } = useAlertStore();
     const [rooms, setRooms] = useState<any[]>([]);
     const [activeRoom, setActiveRoom] = useState<any>(null);
     const [messages, setMessages] = useState<any[]>([]);
@@ -253,12 +255,19 @@ const ChatPage = () => {
     };
 
     const handleDeleteMessage = async (messageId: string) => {
-        if (!window.confirm("Delete this message for everyone?")) return;
-        try {
-            await api.delete(`/${slug}/messages/${messageId}`);
-        } catch (err) {
-            console.error(err);
-        }
+        showConfirm({
+            title: "Delete Message",
+            message: "This message will be permanently deleted for everyone in the channel.",
+            confirmLabel: "Delete",
+            danger: true,
+            onConfirm: async () => {
+                try {
+                    await api.delete(`/${slug}/messages/${messageId}`);
+                } catch (err) {
+                    console.error(err);
+                }
+            },
+        });
     };
 
     const handleTogglePin = async (msg: any) => {

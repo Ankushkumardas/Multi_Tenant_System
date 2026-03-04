@@ -2,23 +2,26 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../../lib/axios";
 import { motion } from "framer-motion";
+import { useAlertStore } from "../../store/alertStore";
 
 const ForgotPassword = () => {
     const [email, setEmail] = useState("");
-    const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
-    const [message, setMessage] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [sent, setSent] = useState(false);
+    const { success, error: showError } = useAlertStore();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!email) return;
-        setStatus("loading");
+        setLoading(true);
         try {
             const res = await api.post("/auth/forgot-password", { email });
-            setStatus("success");
-            setMessage(res.data.message || "Reset link sent to your email.");
+            success("Reset link sent!", res.data.message || "Check your email for the reset link.");
+            setSent(true);
         } catch (err: any) {
-            setStatus("error");
-            setMessage(err.response?.data?.message || "Something went wrong.");
+            showError(err.response?.data?.message || "Something went wrong.");
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -44,28 +47,22 @@ const ForgotPassword = () => {
                     <h2 className="text-2xl font-bold text-gray-900 tracking-tight text-center mb-2">Reset Password</h2>
                     <p className="text-[13px] text-gray-500 text-center mb-8">Enter your email and we'll send you a link to reset your password.</p>
 
-                    {status === "success" ? (
+                    {sent ? (
                         <div className="bg-green-50 border border-green-100 rounded-2xl p-6 text-center">
                             <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 text-green-600">
                                 <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
                             </div>
-                            <p className="text-[14px] font-medium text-green-800">{message}</p>
+                            <p className="text-[14px] font-medium text-green-800">Reset link sent to <strong>{email}</strong>. Check your inbox.</p>
                             <Link to="/login" className="block mt-6 text-[13px] font-semibold text-gray-900 hover:text-blue-600 transition-colors">Return to Login</Link>
                         </div>
                     ) : (
                         <form className="space-y-5" onSubmit={handleSubmit}>
-                            {status === "error" && (
-                                <div className="p-3.5 rounded-xl bg-red-50 text-red-600 border border-red-100 text-[13px] font-medium flex items-center gap-2">
-                                    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                                    {message}
-                                </div>
-                            )}
                             <div>
                                 <label htmlFor="email" className="block text-[12px] font-semibold text-gray-700 uppercase tracking-widest mb-1.5 ml-1">Email address</label>
                                 <input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full h-12 px-4 rounded-xl border border-gray-200 bg-gray-50/50 text-[14px] outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all font-medium" placeholder="you@company.com" />
                             </div>
-                            <button type="submit" disabled={status === "loading"} className="w-full h-12 flex justify-center items-center rounded-xl bg-gray-900 text-white text-[14px] font-semibold hover:bg-gray-800 transition-all active:scale-[0.98] shadow-md shadow-gray-900/20 disabled:opacity-70">
-                                {status === "loading" ? "Processing..." : "Send Reset Link"}
+                            <button type="submit" disabled={loading} className="w-full h-12 flex justify-center items-center rounded-xl bg-gray-900 text-white text-[14px] font-semibold hover:bg-gray-800 transition-all active:scale-[0.98] shadow-md shadow-gray-900/20 disabled:opacity-70">
+                                {loading ? "Processing..." : "Send Reset Link"}
                             </button>
                         </form>
                     )}

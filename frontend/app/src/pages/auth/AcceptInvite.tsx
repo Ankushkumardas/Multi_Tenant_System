@@ -2,11 +2,13 @@ import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { api } from "../../lib/axios";
+import { useAlertStore } from "../../store/alertStore";
 
 const AcceptInvite = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const token = searchParams.get("token");
+    const { error: showError, success } = useAlertStore();
 
     const [formData, setFormData] = useState({
         name: "",
@@ -14,39 +16,31 @@ const AcceptInvite = () => {
         confirmPassword: "",
     });
 
-    const [error, setError] = useState("");
-
     const mutation = useMutation({
         mutationFn: async (data: any) => {
             const res = await api.post(`/auth/accept-invite?token=${token}`, data);
             return res.data;
         },
         onSuccess: () => {
-            navigate("/login?message=Account activated successfully. Please login.");
+            success("Account activated!", "Redirecting you to login…");
+            setTimeout(() => navigate("/login"), 1500);
         },
         onError: (err: any) => {
-            setError(err.response?.data?.message ?? "Something went wrong. Please try again.");
+            showError(err.response?.data?.message ?? "Something went wrong. Please try again.");
         },
     });
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        setError("");
-
         if (!formData.name || !formData.password) {
-            setError("All fields are required.");
+            showError("All fields are required.");
             return;
         }
-
         if (formData.password !== formData.confirmPassword) {
-            setError("Passwords do not match.");
+            showError("Passwords do not match.");
             return;
         }
-
-        mutation.mutate({
-            name: formData.name,
-            password: formData.password,
-        });
+        mutation.mutate({ name: formData.name, password: formData.password });
     };
 
     if (!token) {
@@ -146,7 +140,6 @@ const AcceptInvite = () => {
                             />
                         </div>
 
-                        {error && <p className="text-[12px] text-red-500 font-medium">{error}</p>}
 
                         <button
                             disabled={mutation.isPending}

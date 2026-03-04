@@ -2,24 +2,27 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { api } from "../../lib/axios";
+import { useAlertStore } from "../../store/alertStore";
 
 const VerifyEmail = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
+    const { success, error: showError } = useAlertStore();
 
-    // Pre-fill token if it came via the email link (?token=...)
     const [token, setToken] = useState(searchParams.get("token") ?? "");
     const [resendEmail, setResendEmail] = useState("");
-    const [resendSuccess, setResendSuccess] = useState(false);
 
-    // ── Verify mutation ────────────────────────────────────────────────────
     const mutation = useMutation({
         mutationFn: async (token: string) => {
             const res = await api.post("/auth/verify-owner-email", { token });
             return res.data;
         },
         onSuccess: () => {
-            navigate("/login");
+            success("Email verified!", "Redirecting you to login…");
+            setTimeout(() => navigate("/login"), 1500);
+        },
+        onError: (err: any) => {
+            showError(err?.response?.data?.message ?? "Invalid or expired token. Please try again.");
         },
     });
 
@@ -28,16 +31,17 @@ const VerifyEmail = () => {
         mutation.mutate(token.trim());
     };
 
-    // ── Resend mutation ────────────────────────────────────────────────────
     const resendMutation = useMutation({
         mutationFn: async (email: string) => {
             const res = await api.post("/auth/resend-verification-email", { email });
             return res.data;
         },
         onSuccess: () => {
-            setResendSuccess(true);
+            success("Verification email sent!", "Check your inbox for a new verification link.");
             setResendEmail("");
-            setTimeout(() => setResendSuccess(false), 3000);
+        },
+        onError: (err: any) => {
+            showError(err?.response?.data?.message ?? "Something went wrong. Please try again.");
         },
     });
 
@@ -186,7 +190,7 @@ const VerifyEmail = () => {
                         {/* Error */}
                         {mutation.isError && (
                             <p className="text-[12px] text-red-500 text-center">
-                                {(mutation.error as any)?.response?.data?.message ?? "Invalid or expired token. Please try again."}
+                                Verification failed — please check your token and try again.
                             </p>
                         )}
                     </form>
@@ -199,62 +203,19 @@ const VerifyEmail = () => {
                     </div>
 
                     {/* ── Resend section ── */}
-                    {resendSuccess ? (
-                        <div className="flex items-center gap-3 bg-green-50 border border-green-100 rounded-xl p-3.5 mb-6">
-                            <svg className="w-5 h-5 text-green-500 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <div>
-                                <p className="text-[13px] font-semibold text-green-800">Email sent!</p>
-                                <p className="text-[12px] text-green-600 mt-0.5">Check your inbox for a new verification link.</p>
-                            </div>
+                    <form className="space-y-3 mb-6" onSubmit={handleResend}>
+                        <div>
+                            <label htmlFor="resend-email" className="block text-[12px] font-semibold text-gray-700 mb-1.5">Your email address</label>
+                            <input id="resend-email" type="email" placeholder="jane@company.com" value={resendEmail} onChange={(e) => setResendEmail(e.target.value)} className="w-full h-10 px-3 text-[13px] bg-white border border-gray-200 rounded-lg outline-none text-gray-900 placeholder-gray-300 focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10 transition-all" required />
                         </div>
-                    ) : (
-                        <form className="space-y-3 mb-6" onSubmit={handleResend}>
-                            <div>
-                                <label htmlFor="resend-email" className="block text-[12px] font-semibold text-gray-700 mb-1.5">
-                                    Your email address
-                                </label>
-                                <input
-                                    id="resend-email"
-                                    type="email"
-                                    placeholder="jane@company.com"
-                                    value={resendEmail}
-                                    onChange={(e) => setResendEmail(e.target.value)}
-                                    className="w-full h-10 px-3 text-[13px] bg-white border border-gray-200 rounded-lg outline-none text-gray-900 placeholder-gray-300 focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10 transition-all"
-                                    required
-                                />
-                            </div>
-                            <button
-                                id="resend-submit"
-                                type="submit"
-                                disabled={resendMutation.isPending}
-                                className="w-full h-10 border border-gray-200 text-gray-700 text-[13px] font-semibold rounded-lg hover:border-gray-400 hover:text-gray-900 active:scale-[0.98] transition-all duration-150 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-                            >
-                                {resendMutation.isPending ? (
-                                    <>
-                                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                                        </svg>
-                                        Sending…
-                                    </>
-                                ) : (
-                                    <>
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-                                        </svg>
-                                        Resend verification email
-                                    </>
-                                )}
-                            </button>
-                            {resendMutation.isError && (
-                                <p className="text-[12px] text-red-500 text-center">
-                                    {(resendMutation.error as any)?.response?.data?.message ?? "Something went wrong. Please try again."}
-                                </p>
+                        <button id="resend-submit" type="submit" disabled={resendMutation.isPending} className="w-full h-10 border border-gray-200 text-gray-700 text-[13px] font-semibold rounded-lg hover:border-gray-400 hover:text-gray-900 active:scale-[0.98] transition-all duration-150 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed">
+                            {resendMutation.isPending ? (
+                                <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Sending…</>
+                            ) : (
+                                <><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>Resend verification email</>
                             )}
-                        </form>
-                    )}
+                        </button>
+                    </form>
 
                     {/* Footer */}
                     <div className="flex items-center justify-between mt-8 text-[12px] text-gray-400">

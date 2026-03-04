@@ -4,11 +4,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import { api } from "../../lib/axios";
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAlertStore } from "../../store/alertStore";
 
 const AccountSettingsPage = () => {
     const { slug } = useParams();
     const queryClient = useQueryClient();
     const { user, tenant } = useAuthStore();
+    const { success, error: showError } = useAlertStore();
 
     // UI State
     const [activeTab, setActiveTab] = useState<"security" | "general" | "workspace">("security");
@@ -78,11 +80,11 @@ const AccountSettingsPage = () => {
             return res.data;
         },
         onSuccess: (data) => {
-            alert(data.message || "Profile updated successfully!");
+            success(data.message || "Profile updated successfully!");
             queryClient.invalidateQueries({ queryKey: ["profile", slug] });
         },
         onError: (err: any) => {
-            alert(err.response?.data?.message || "Failed to update profile");
+            showError(err.response?.data?.message || "Failed to update profile");
         }
     });
 
@@ -93,13 +95,13 @@ const AccountSettingsPage = () => {
             return res.data;
         },
         onSuccess: () => {
-            alert("Password changed successfully!");
+            success("Password changed successfully!");
             setOldPassword("");
             setNewPassword("");
             setConfirmPassword("");
         },
         onError: (err: any) => {
-            alert(err.message || err.response?.data?.message || "Failed to change password");
+            showError(err.message || err.response?.data?.message || "Failed to change password");
         }
     });
 
@@ -118,17 +120,14 @@ const AccountSettingsPage = () => {
             return res.data;
         },
         onSuccess: (data) => {
-            alert("Workspace settings updated!");
+            success("Workspace settings updated!");
             queryClient.invalidateQueries({ queryKey: ["tenant-settings", slug] });
-            // If name or slug updated, we might need to handle navigation, but admin settings 
-            // usually don't force a redirect as aggressively as user/workspace does.
-            // But let's check if slug changed.
             if (data.tenant?.slug && data.tenant.slug !== slug) {
                 window.location.href = `/${data.tenant.slug}/settings/account`;
             }
         },
         onError: (err: any) => {
-            alert(err.response?.data?.message || "Workspace update failed");
+            showError(err.response?.data?.message || "Workspace update failed");
         }
     });
 

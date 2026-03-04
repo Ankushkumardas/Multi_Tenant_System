@@ -6,10 +6,12 @@ import { useBoard, useProjectMembers } from "../../hooks/useProjects";
 import { Skeleton } from "../../components/projects/ProjectUI";
 import TaskDetailPanel from "../../components/projects/TaskDetailPanel";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAlertStore } from "../../store/alertStore";
 
 const ProjectTasks = () => {
     const { slug, projectId } = useParams();
     const qc = useQueryClient();
+    const { showConfirm, success } = useAlertStore();
 
     const { data: membersData } = useProjectMembers(projectId!);
     const { data: boardData, isLoading: boardLoading } = useBoard(projectId!);
@@ -49,7 +51,10 @@ const ProjectTasks = () => {
             const res = await api.delete(`/${slug}/projects/${projectId}/tasks/${taskId}`);
             return res.data;
         },
-        onSuccess: () => qc.invalidateQueries({ queryKey: ["board", slug, projectId] }),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["board", slug, projectId] });
+            success("Task deleted");
+        },
     });
 
     if (boardLoading) {
@@ -186,7 +191,13 @@ const ProjectTasks = () => {
                                                         <button
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                if (window.confirm("Delete this task?")) deleteTaskMutation.mutate(task._id);
+                                                                showConfirm({
+                                                                    title: "Delete Task",
+                                                                    message: `"${task.title}" will be permanently deleted.`,
+                                                                    confirmLabel: "Delete",
+                                                                    danger: true,
+                                                                    onConfirm: () => deleteTaskMutation.mutate(task._id),
+                                                                });
                                                             }}
                                                             className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
                                                             title="Delete"
