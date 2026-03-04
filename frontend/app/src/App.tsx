@@ -26,6 +26,7 @@ import ResetPassword from './pages/auth/ResetPassword';
 import MembersPage from './pages/members/MembersPage';
 import NotificationsPage from './pages/notifications/NotificationsPage';
 import ProjectTeamsPage from './pages/settings/ProjectTeamsPage';
+import ProjectMapDetailPage from './pages/settings/ProjectMapDetailPage';
 import TenantRoute from './router/TenantRoute';
 import RoleRoute from './router/RoleRoute';
 import { Navigate } from 'react-router-dom';
@@ -74,6 +75,7 @@ const App = () => {
               <Route element={<RoleRoute allowedRoles={["OWNER", "ADMIN"]} />}>
                 <Route path='team' element={<MembersPage />} />
                 <Route path='projects-team' element={<ProjectTeamsPage />} />
+                <Route path='projects-team/:projectId' element={<ProjectMapDetailPage />} />
                 <Route path='audit' element={<AuditPage />} />
               </Route>
             </Route>

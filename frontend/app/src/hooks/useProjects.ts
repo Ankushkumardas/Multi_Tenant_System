@@ -77,3 +77,16 @@ export const useTaskComments = (projectId: string, taskId: string) => {
         enabled: !!taskId && !!projectId,
     });
 };
+
+// ── Project Stats (tasks by status/priority, member roles, sections) ──────────
+export const useProjectStats = (projectId: string | undefined) => {
+    const { slug } = useParams();
+    return useQuery({
+        queryKey: ["project-stats", slug, projectId],
+        queryFn: async () => {
+            const res = await api.get(`/${slug}/projects/${projectId}/stats`);
+            return res.data;
+        },
+        enabled: !!projectId && !!slug,
+    });
+};

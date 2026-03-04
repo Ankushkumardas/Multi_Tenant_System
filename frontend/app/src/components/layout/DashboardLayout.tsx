@@ -31,6 +31,11 @@ const Sidebar = ({ open, onClose }: SidebarProps) => {
     const isActive = (href: string) => {
         const path = location.pathname;
         if (href === 'dashboard') return path.endsWith('/dashboard');
+        // For "projects" avoid matching "projects-team" or project subroutes inside settings
+        if (href === 'projects') {
+            // match /<slug>/projects or /<slug>/projects/... but NOT settings/projects-team
+            return /\/projects(\/|$)/.test(path) && !path.includes('settings/projects');
+        }
         return path.includes(`/${href}`);
     };
 
@@ -87,33 +92,33 @@ const Sidebar = ({ open, onClose }: SidebarProps) => {
             {/* Sidebar panel */}
             <aside
                 className={`
-          fixed lg:static inset-y-0 left-0 z-50
-          w-64 flex flex-col
-          transition-all duration-300 ease-in-out
-          ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
-        `}
+                    fixed lg:static inset-y-0 left-0 z-50
+                    w-64 bg-white flex flex-col border-r border-gray-100 h-screen
+                    transition-all duration-300 ease-in-out
+                    ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+                `}
             >
                 {/* Logo & Workspace */}
-                <div className="h-16 flex items-center px-6 border-b border-white/5 shrink-0">
-                    <Link to={`/${slug}/dashboard`} className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
-                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="h-20 flex items-center px-6 border-b border-gray-50 shrink-0">
+                    <Link to={`/${slug}/dashboard`} className="flex items-center gap-3 group">
+                        <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-600/30 group-hover:scale-105 transition-transform duration-300">
+                            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18c-2.305 0-4.408.867-6 2.292m0-14.25v14.25" />
                             </svg>
                         </div>
                         <div className="min-w-0">
-                            <p className="font-bold text-white text-[14px] truncate tracking-tight">{tenant?.name ?? "Workspace"}</p>
-                            <p className="text-[10px] text-gray-400 truncate uppercase mt-0.5">{slug}</p>
+                            <p className="font-bold text-gray-900 text-[16px] truncate tracking-tight leading-tight">{tenant?.name ?? "Workspace"}</p>
+                            <p className="text-[10px] text-gray-400 truncate uppercase mt-0.5 font-bold tracking-widest">{slug}</p>
                         </div>
                     </Link>
                 </div>
 
                 {/* Nav */}
-                <div className="flex-1 overflow-y-auto px-4 py-6 scrollbar-hide">
-                    <nav className="space-y-6">
+                <div className="flex-1 overflow-y-auto px-4 py-8 scrollbar-hide">
+                    <nav className="space-y-7">
                         {sideItems.map((group) => (
                             <div key={group.group}>
-                                <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] mb-3 px-3">
+                                <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.25em] mb-4 px-3">
                                     {group.group}
                                 </h4>
                                 <div className="space-y-1">
@@ -123,14 +128,14 @@ const Sidebar = ({ open, onClose }: SidebarProps) => {
                                             to={`/${slug}/${item.href}`}
                                             onClick={() => window.innerWidth < 1024 && onClose()}
                                             className={`
-                                                flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-200
+                                                flex items-center gap-3.5 px-3 py-2.5 rounded-xl text-[14px] font-bold transition-all duration-200
                                                 ${isActive(item.href)
-                                                    ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
-                                                    : "text-gray-400 hover:bg-white/5 hover:text-white"
+                                                    ? "bg-blue-600 text-white shadow-xl shadow-blue-600/30"
+                                                    : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
                                                 }
                                             `}
                                         >
-                                            <span className={isActive(item.href) ? "text-white" : "text-gray-500"}>
+                                            <span className={`transition-colors duration-200 ${isActive(item.href) ? "text-white" : "text-gray-400"}`}>
                                                 {item.icon}
                                             </span>
                                             {item.label}
@@ -143,24 +148,30 @@ const Sidebar = ({ open, onClose }: SidebarProps) => {
                 </div>
 
                 {/* User profile + logout */}
-                <div className="border-t border-white/5 p-4 shrink-0">
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="w-9 h-9 rounded-lg bg-gray-800 text-gray-400 flex items-center justify-center text-[12px] font-bold">
+                <div className="border-t border-gray-100 p-4 shrink-0 bg-white">
+                    <div className="flex items-center gap-3 mb-5 px-2">
+                        <div className="w-12 h-12 rounded-xl bg-[#0B0E14] text-white flex items-center justify-center text-[16px] font-bold shadow-sm">
                             {user?.name?.[0]?.toUpperCase() ?? "U"}
                         </div>
                         <div className="min-w-0">
-                            <p className="text-[13px] font-medium text-white truncate">{user?.name ?? "User"}</p>
-                            <p className="text-[10px] text-gray-500 truncate capitalize">{user?.role?.toLowerCase()}</p>
+                            <p className="text-[15px] font-bold text-gray-900 truncate leading-tight">{user?.name ?? "User"}</p>
+                            <p className="text-[11px] font-medium text-gray-500 truncate capitalize">{user?.role?.toLowerCase()}</p>
                         </div>
                     </div>
                     <button
                         onClick={handleLogout}
-                        className="w-full flex items-center justify-center gap-2 h-10 bg-white/5 rounded-lg text-[12px] text-gray-400 hover:text-white hover:bg-red-600 transition-all font-medium"
+                        className="w-full flex items-center justify-center gap-2 h-12 bg-white border border-gray-200 rounded-xl text-[12px] text-gray-600 hover:text-red-600 hover:bg-red-50 hover:border-red-100 transition-all font-bold uppercase tracking-widest group shadow-sm"
                     >
+                        <svg className="w-4 h-4 transition-transform group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
                         Logout
                     </button>
                 </div>
             </aside>
+
+
+
         </>
     );
 };

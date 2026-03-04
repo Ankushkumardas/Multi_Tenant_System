@@ -48,10 +48,71 @@ export const getActivityStats = async (req, res) => {
   try {
     const stats = await ActivityLog.aggregate([
       { $match: { tenantId: new mongoose.Types.ObjectId(req.user.tenantId) } },
-      { $group: { _id: "$action", count: { $sum: 1 } } },
+      { $group: { _id: "$actionType", count: { $sum: 1 } } },
       { $sort: { count: -1 } },
     ]);
     res.status(200).json({ stats });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ── Task Activity Chart ────────────────────────────────────────────────────────
+// Returns per-day counts for the last N days, broken down by task-related actionTypes
+export const getTaskActivityChart = async (req, res) => {
+  try {
+    const { tenantId } = req.user;
+    const days = parseInt(req.query.days) || 14;
+
+    const since = new Date();
+    since.setDate(since.getDate() - (days - 1));
+    since.setHours(0, 0, 0, 0);
+
+    const TASK_ACTIONS = [
+      "TASK_CREATED",
+      "TASK_UPDATED",
+      "TASK_DELETED",
+      "TASK_ASSIGNED",
+      "TASK_STATUS_CHANGED",
+      "TASK_PRIORITY_CHANGED",
+      "TASK_DUE_DATE_CHANGED",
+    ];
+
+    // daily breakdown per actionType
+    const raw = await ActivityLog.aggregate([
+      {
+        $match: {
+          tenantId: new mongoose.Types.ObjectId(tenantId),
+          actionType: { $in: TASK_ACTIONS },
+          createdAt: { $gte: since },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            date: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+            actionType: "$actionType",
+          },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { "_id.date": 1 } },
+    ]);
+
+    // totals per actionType
+    const totals = await ActivityLog.aggregate([
+      {
+        $match: {
+          tenantId: new mongoose.Types.ObjectId(tenantId),
+          actionType: { $in: TASK_ACTIONS },
+        },
+      },
+      { $group: { _id: "$actionType", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+    ]);
+
+    res.status(200).json({ daily: raw, totals });
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: "Internal server error" });

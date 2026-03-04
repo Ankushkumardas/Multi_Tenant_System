@@ -9,6 +9,7 @@ import {
   getMyProjects,
   getProjectById,
   getProjectMembers,
+  getProjectStats,
   removeMemberFromProject,
   toggelArchiver,
   updateProject,
@@ -136,6 +137,14 @@ router.get(
   checkTenant,
   checkPermissions(["READ_PROJECT"]),
   getProjectMembers,
+);
+
+router.get(
+  "/:projectId/stats",
+  authenticate,
+  checkTenant,
+  checkPermissions(["READ_PROJECT"]),
+  getProjectStats,
 );
 
 //task routes

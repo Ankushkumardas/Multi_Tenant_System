@@ -5,6 +5,7 @@ import ProjectMember from "../models/projectMembersSchema.js";
 import ChatRoom from "../models/ChatRoomSchema.js";
 import ChatParticipant from "../models/ChatUserSchema.js";
 import Section from "../models/SectionSchema.js";
+import Task from "../models/TaskSchema.js";
 import { saveAuditLog, saveActivityLog } from "../service/auditLogger.js";
 
 export const createProject = async (req, res) => {
@@ -331,11 +332,9 @@ export const addMemberToProject = async (req, res) => {
     }
 
     if (!targetUser) {
-      return res
-        .status(400)
-        .json({
-          message: "User not found. Please invite them to the workspace first.",
-        });
+      return res.status(400).json({
+        message: "User not found. Please invite them to the workspace first.",
+      });
     }
 
     if (targetUser.tenantId.toString() !== tenantId.toString()) {
@@ -645,6 +644,69 @@ export const Leaveproject = async (req, res) => {
     res
       .status(200)
       .json({ message: "Member removed successfully", projectMembers });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// ── Project Stats ─────────────────────────────────────────────────────────────
+export const getProjectStats = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { tenantId } = req.user;
+
+    const project = await Project.findOne({
+      _id: projectId,
+      tenantId,
+    }).populate("ownerId", "name email");
+    if (!project) return res.status(404).json({ message: "Project not found" });
+
+    // members with user details
+    const membersRaw = await ProjectMember.find({
+      projectId,
+      tenantId,
+    }).populate("userId", "name email role");
+
+    // tasks
+    const tasks = await Task.find({ projectId, tenantId });
+
+    // status breakdown
+    const statusCounts = { TODO: 0, IN_PROGRESS: 0, REVIEW: 0, DONE: 0 };
+    const priorityCounts = { LOW: 0, MEDIUM: 0, HIGH: 0, URGENT: 0 };
+    let overdue = 0;
+    const now = new Date();
+
+    for (const t of tasks) {
+      if (t.status) statusCounts[t.status] = (statusCounts[t.status] || 0) + 1;
+      if (t.priority)
+        priorityCounts[t.priority] = (priorityCounts[t.priority] || 0) + 1;
+      if (t.dueDate && new Date(t.dueDate) < now && t.status !== "DONE")
+        overdue++;
+    }
+
+    // role breakdown
+    const roleCounts = {};
+    for (const m of membersRaw) {
+      const r = m.role || "USER";
+      roleCounts[r] = (roleCounts[r] || 0) + 1;
+    }
+
+    // sections
+    const sections = await Section.find({ projectId, tenantId });
+
+    return res.status(200).json({
+      project,
+      stats: {
+        totalTasks: tasks.length,
+        totalMembers: membersRaw.length,
+        totalSections: sections.length,
+        overdueTasks: overdue,
+        statusCounts,
+        priorityCounts,
+        roleCounts,
+      },
+      members: membersRaw,
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useNavigate } from "react-router-dom";
 import {
@@ -9,8 +9,38 @@ import {
 } from "../../hooks/useDashboard";
 import { api } from "../../lib/axios";
 
-const formatDate = (d: string) =>
-    new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+const fmt = (d?: string) =>
+    d ? new Date(d).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" }) : "—";
+
+const CheckIcon = () => (
+    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+    </svg>
+);
+
+const statusColor: Record<string, string> = {
+    ACTIVE: "bg-green-50 text-green-700 border-green-100",
+    EXPIRED: "bg-red-50 text-red-600 border-red-100",
+    CANCELLED: "bg-gray-100 text-gray-500 border-gray-200",
+};
+
+const actionLabel: Record<string, string> = {
+    CREATED: "Created",
+    UPGRADED: "Upgraded",
+    DOWNGRADED: "Downgraded",
+    RENEWED: "Renewed",
+    BILLING_CYCLE_CHANGED: "Cycle changed",
+};
+
+const actionColor: Record<string, string> = {
+    CREATED: "bg-blue-50 text-blue-700",
+    UPGRADED: "bg-green-50 text-green-700",
+    DOWNGRADED: "bg-orange-50 text-orange-600",
+    RENEWED: "bg-purple-50 text-purple-700",
+    BILLING_CYCLE_CHANGED: "bg-gray-100 text-gray-600",
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 const SubscriptionPage = () => {
     const { slug } = useParams();
@@ -21,518 +51,433 @@ const SubscriptionPage = () => {
     const { data: plansData, isLoading: plansLoading, error: plansError } = usePlans();
     const { data: statsData, isLoading: statsLoading } = useDashboardStats();
     const { data: membersData, isLoading: membersLoading } = useWorkspaceMembers();
-    const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
-    const [historyPage, setHistoryPage] = useState(1);
-    const pageSize = 5;
 
+    const [activeTab, setActiveTab] = useState("Overview");
+    const tabs = ["Overview", "Plans & Tiers", "Billing History"];
+
+    // ── mutations ──────────────────────────────────────────────────────────────
     const toggleAutoRenewMutation = useMutation({
         mutationFn: async () => {
-            if (!slug) throw new Error("Workspace slug missing");
+            if (!slug) throw new Error("No slug");
             await api.post(`/${slug}/subscription/toggle-auto-renew`);
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["subscription-history", slug] });
-        },
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ["subscription-history", slug] }),
     });
 
-    const renewSubscriptionMutation = useMutation({
+    const renewMutation = useMutation({
         mutationFn: async () => {
-            if (!slug) throw new Error("Workspace slug missing");
+            if (!slug) throw new Error("No slug");
             await api.post(`/${slug}/subscription/renew`);
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["subscription-history", slug] });
-        },
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ["subscription-history", slug] }),
     });
 
-    const updateBillingCycleMutation = useMutation({
-        mutationFn: async (cycle: "MONTHLY" | "YEARLY" | "QUARTERLY" | "HALF_YEARLY") => {
-            if (!slug) throw new Error("Workspace slug missing");
+    const updateCycleMutation = useMutation({
+        mutationFn: async (cycle: string) => {
+            if (!slug) throw new Error("No slug");
             await api.post(`/${slug}/subscription/billing-cycle`, { billingCycle: cycle });
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["subscription-history", slug] });
-        },
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ["subscription-history", slug] }),
     });
 
-    const handlePlanChange = (planId: string | null) => {
-        if (!planId || !plansData || !slug) return;
+    // ── data ───────────────────────────────────────────────────────────────────
+    const subscription = subData?.subscription ?? {};
+    const history: any[] = subscription?.history ?? [];
+    const planObj = subscription?.planId ?? {};
+
+    const planName = planObj?.name ?? "—";
+    const planPrice = planObj?.price ?? 0;
+    const planStatus = subscription?.status ?? "ACTIVE";
+    const billingCycle = subscription?.billingCycle ?? "MONTHLY";
+    const autoRenew = subscription?.autoRenew ?? false;
+    const paymentProvider = subscription?.paymentProvider ?? "MANUAL";
+
+    const maxProjects = planObj?.limits?.maxProjects ?? 0;
+    const maxMembers = planObj?.limits?.maxUsers ?? 0;
+    const usedProjects: number = statsData?.stats?.totalProjects ?? 0;
+    const usedMembers: number = membersData?.users?.length ?? 0;
+
+    const projectPct = maxProjects > 0 ? Math.min(100, Math.round((usedProjects / maxProjects) * 100)) : 0;
+    const memberPct = maxMembers > 0 ? Math.min(100, Math.round((usedMembers / maxMembers) * 100)) : 0;
+
+    const handleSwitchPlan = (planId: string) => {
+        if (!plansData || !slug) return;
         const plan = plansData.find((p: any) => p._id === planId);
         if (!plan) return;
-
         navigate(`/${slug}/settings/subscription/checkout`, {
-            state: {
-                mode: "change",
-                slug,
-                planId: plan._id,
-                planName: plan.name,
-                priceLabel: `$${plan.price}`,
-                tagline: "Adjust your workspace limits instantly.",
-            },
+            state: { mode: "change", slug, planId: plan._id, planName: plan.name, priceLabel: `$${plan.price}`, tagline: "Adjust your workspace limits instantly." },
         });
     };
 
-    // Ensure hooks are called unconditionally by providing default values
-    const subscription = subData?.subscription ?? subData ?? {};
-    const history = subscription?.history ?? [];
-    const planObj = subscription?.planId ?? subscription?.plan ?? {};
-    console.log(subscription)
-    const plan = planObj?.name || "Free Tier"; // Default to "Enterprise" if plan name is missing
-    const status = subscription?.status ?? "ACTIVE";
-    const billingCycle =
-        (subscription?.billingCycle as "MONTHLY" | "YEARLY" | "QUARTERLY" | "HALF_YEARLY") ?? "MONTHLY";
-    const projectLimit = planObj?.limits?.maxProjects ?? 0;
-    const memberLimit = planObj?.limits?.maxUsers ?? 0;
-    const totalProjects: number = statsData?.stats?.totalProjects ?? 0;
-    const memberCount: number = membersData?.users?.length ?? 0;
-
-    const projectUsagePct =
-        projectLimit > 0 ? Math.min(100, Math.round((totalProjects / projectLimit) * 100)) : null;
-    const memberUsagePct =
-        memberLimit > 0 ? Math.min(100, Math.round((memberCount / memberLimit) * 100)) : null;
-
-    const totalPages = Math.max(1, Math.ceil(history.length / pageSize));
-    const currentPage = Math.min(historyPage, totalPages);
-    const pagedHistory = useMemo(
-        () => history.slice((currentPage - 1) * pageSize, currentPage * pageSize),
-        [history, currentPage],
-    );
-
-    // Format subscription data for display
-    // const formattedSubscription = {
-    //     planName: planObj?.name || "N/A",
-    //     price: planObj?.price || "N/A",
-    //     billingCycle: subscription?.billingCycle || "N/A",
-    //     startDate: subscription?.startDate ? formatDate(subscription.startDate) : "N/A",
-    //     endDate: subscription?.endDate ? formatDate(subscription.endDate) : "N/A",
-    //     autoRenew: subscription?.autoRenew ? "Enabled" : "Disabled",
-    //     status: subscription?.status || "N/A",
-    //     features: planObj?.features || {},
-    //     limits: planObj?.limits || {},
-    //     history: subscription?.history || [],
-    // };
-
+    // ── loading / error ────────────────────────────────────────────────────────
     if (subLoading || plansLoading || statsLoading || membersLoading) {
-        return (<div>Loading...</div>);
-    }
-
-    if (subError || plansError) {
         return (
-            <div className="w-full p-8">
-                <p className="text-sm text-red-500">
-                    {(subError as any)?.message || (plansError as any)?.message || "Failed to load subscription data."}
-                </p>
+            <div className="flex items-center justify-center h-64">
+                <div className="text-sm text-gray-400 animate-pulse">Loading subscription data…</div>
             </div>
         );
     }
 
+    if (subError || plansError) {
+        return (
+            <div className="m-6 p-4 rounded-xl border border-red-100 bg-red-50 text-sm text-red-600">
+                {(subError as any)?.message || (plansError as any)?.message || "Failed to load data."}
+            </div>
+        );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     return (
-        <div className="w-full space-y-6">
-            <div className="bg-white border-b border-gray-100 -mx-6 -mt-6 px-6 py-4 sticky top-0 z-10">
-                <h1 className="text-[18px] font-semibold text-gray-900 tracking-tight">Billing & plans</h1>
-                <p className="text-[12px] text-gray-400 mt-1">Manage your workspace subscription, invoices and renewal.</p>
+        <div className="w-full">
+            {/* ── Page header ── */}
+            <div className="flex items-start justify-between mb-6">
+                <div>
+                    <h1 className="text-xl font-bold text-gray-900 tracking-tight">Subscription & Billing</h1>
+                    <p className="text-sm text-gray-400 mt-0.5">Manage your plan, billing cycle, and payment details.</p>
+                </div>
+                <button
+                    onClick={() => setActiveTab("Plans & Tiers")}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors"
+                >
+                    Upgrade Plan
+                </button>
             </div>
 
-            <div className="space-y-6">
-                {/* Top row: current plan + available plans */}
-                <div className="grid grid-cols-1 lg:grid-cols-[1.6fr,1.4fr] gap-6">
-                    {/* Current Plan & usage */}
-                    <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                            <div>
-                                <p className="text-[11px] font-medium text-gray-500 uppercase tracking-[0.16em]">Current plan</p>
-                                <h2 className="text-[22px] font-semibold text-gray-900 mt-1 tracking-tight">{plan}</h2>
-                                <p className="text-[12px] text-gray-500 mt-1">
-                                    Next billing date{" "}
-                                    <span className="font-medium text-gray-900">
-                                        {subscription?.endDate ? formatDate(subscription.endDate) : "—"}
-                                    </span>
-                                </p>
-                            </div>
-                            <div className="flex gap-3">
-                                <button
-                                    className="h-10 px-5 bg-gray-900 text-white text-[12px] font-medium rounded-xl hover:bg-black transition-all uppercase tracking-wider disabled:opacity-60 disabled:cursor-not-allowed"
-                                    disabled={!selectedPlan}
-                                    onClick={() => handlePlanChange(selectedPlan)}
-                                >
-                                    Upgrade tier
-                                </button>
-                                <button className="h-10 px-5 border border-gray-100 bg-white text-gray-900 text-[12px] font-medium rounded-xl hover:bg-gray-50 transition-all uppercase tracking-wider">
-                                    Manage methods
-                                </button>
-                            </div>
-                        </div>
+            {/* ── Tabs ── */}
+            <div className="flex gap-6 border-b border-gray-100 mb-6">
+                {tabs.map((t) => (
+                    <button
+                        key={t}
+                        onClick={() => setActiveTab(t)}
+                        className={`pb-3 text-sm font-semibold border-b-2 -mb-px transition-colors ${activeTab === t
+                                ? "border-blue-600 text-blue-600"
+                                : "border-transparent text-gray-400 hover:text-gray-600"
+                            }`}
+                    >
+                        {t}
+                    </button>
+                ))}
+            </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 pt-4 border-t border-gray-50">
-                            <div>
-                                <p className="text-[11px] text-gray-400 font-medium uppercase tracking-[0.16em] mb-1">Status</p>
-                                <p className={`text-[14px] font-medium uppercase tracking-tight ${status === "ACTIVE" ? "text-green-600" : "text-red-600"}`}>{status}</p>
+            {/* ══════════════════════  OVERVIEW TAB  ══════════════════════════ */}
+            {activeTab === "Overview" && (
+                <div className="space-y-5">
+                    {/* Top row: plan card + usage */}
+                    <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+                        {/* Current plan card */}
+                        <div className="lg:col-span-2 bg-gray-950 rounded-2xl p-6 text-white relative overflow-hidden">
+                            <div className={`absolute top-5 right-5 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full border ${statusColor[planStatus] ?? "bg-gray-100 text-gray-500 border-gray-200"}`}>
+                                {planStatus}
                             </div>
-                            <div>
-                                <p className="text-[11px] text-gray-400 font-medium uppercase tracking-[0.16em] mb-1">Billing cycle</p>
-                                <div className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 p-0.5">
-                                    <button
-                                        type="button"
-                                        onClick={() => updateBillingCycleMutation.mutate("MONTHLY")}
-                                        disabled={billingCycle === "MONTHLY" || updateBillingCycleMutation.isPending}
-                                        className={`px-3 h-7 rounded-full text-[11px] font-medium transition ${
-                                            billingCycle === "MONTHLY" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
-                                        }`}
-                                    >
-                                        Monthly
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => updateBillingCycleMutation.mutate("QUARTERLY")}
-                                        disabled={billingCycle === "QUARTERLY" || updateBillingCycleMutation.isPending}
-                                        className={`px-3 h-7 rounded-full text-[11px] font-medium transition ${
-                                            billingCycle === "QUARTERLY" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
-                                        }`}
-                                    >
-                                        Quarterly
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => updateBillingCycleMutation.mutate("HALF_YEARLY")}
-                                        disabled={billingCycle === "HALF_YEARLY" || updateBillingCycleMutation.isPending}
-                                        className={`px-3 h-7 rounded-full text-[11px] font-medium transition ${
-                                            billingCycle === "HALF_YEARLY" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
-                                        }`}
-                                    >
-                                        6 months
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => updateBillingCycleMutation.mutate("YEARLY")}
-                                        disabled={billingCycle === "YEARLY" || updateBillingCycleMutation.isPending}
-                                        className={`px-3 h-7 rounded-full text-[11px] font-medium transition ${
-                                            billingCycle === "YEARLY" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
-                                        }`}
-                                    >
-                                        Yearly
-                                    </button>
+
+                            <p className="text-[10px] text-gray-400 uppercase tracking-widest font-semibold mb-1">Current Plan</p>
+                            <h2 className="text-2xl font-extrabold mb-1">{planName}</h2>
+                            <p className="text-2xl font-light text-gray-300 mb-6">
+                                ${planPrice}<span className="text-sm text-gray-500">/mo</span>
+                            </p>
+
+                            <div className="space-y-3 text-sm mb-6">
+                                <div className="flex justify-between">
+                                    <span className="text-gray-400">Billing cycle</span>
+                                    <span className="font-medium capitalize">{billingCycle.replace("_", " ").toLowerCase()}</span>
                                 </div>
-                            </div>
-                            <div>
-                                <p className="text-[11px] text-gray-400 font-medium uppercase tracking-[0.16em] mb-1">Auto-renew</p>
-                                <div className="flex items-center gap-3">
-                                    <p className="text-[14px] font-medium text-gray-900 uppercase tracking-tight">
-                                        {subscription?.autoRenew ? "Enabled" : "Disabled"}
-                                    </p>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-400">Start date</span>
+                                    <span className="font-medium">{fmt(subscription?.startDate)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-400">Next payment</span>
+                                    <span className="font-medium">{fmt(subscription?.endDate)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-400">Payment via</span>
+                                    <span className="font-medium">{paymentProvider}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-gray-400">Auto-renew</span>
                                     <button
                                         onClick={() => toggleAutoRenewMutation.mutate()}
-                                        className="h-8 px-4 text-[11px] font-medium rounded-full border border-gray-200 text-gray-700 hover:bg-gray-50 uppercase tracking-wider disabled:opacity-60 disabled:cursor-not-allowed"
                                         disabled={toggleAutoRenewMutation.isPending}
+                                        className={`w-10 h-5 rounded-full relative transition-colors ${autoRenew ? "bg-blue-500" : "bg-gray-600"}`}
                                     >
-                                        {toggleAutoRenewMutation.isPending ? "Saving..." : "Toggle"}
+                                        <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${autoRenew ? "translate-x-5" : "translate-x-0.5"}`} />
                                     </button>
                                 </div>
                             </div>
-                        </div>
 
-                        {/* Usage cards */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5">
-                            {projectLimit > 0 && (
-                                <div className="border border-gray-100 rounded-xl p-4 bg-gray-50/60">
-                                    <p className="text-[11px] font-semibold text-gray-600 uppercase tracking-[0.16em] mb-1">
-                                        Projects
-                                    </p>
-                                    <p className="text-[20px] font-semibold text-gray-900">
-                                        {totalProjects}{" "}
-                                        <span className="text-[13px] text-gray-400">
-                                            / {projectLimit}
-                                        </span>
-                                    </p>
-                                    {projectUsagePct !== null && (
-                                        <div className="mt-2 h-1.5 rounded-full bg-gray-200 overflow-hidden">
-                                            <div
-                                                className="h-full bg-gray-900 rounded-full"
-                                                style={{ width: `${projectUsagePct}%` }}
-                                            />
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                            {memberLimit > 0 && (
-                                <div className="border border-gray-100 rounded-xl p-4 bg-gray-50/60">
-                                    <p className="text-[11px] font-semibold text-gray-600 uppercase tracking-[0.16em] mb-1">
-                                        Members
-                                    </p>
-                                    <p className="text-[20px] font-semibold text-gray-900">
-                                        {memberCount}{" "}
-                                        <span className="text-[13px] text-gray-400">
-                                            / {memberLimit}
-                                        </span>
-                                    </p>
-                                    {memberUsagePct !== null && (
-                                        <div className="mt-2 h-1.5 rounded-full bg-gray-200 overflow-hidden">
-                                            <div
-                                                className="h-full bg-gray-900 rounded-full"
-                                                style={{ width: `${memberUsagePct}%` }}
-                                            />
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-
-                        {status === "EXPIRED" && (
-                            <div className="mt-6">
+                            {planStatus === "EXPIRED" && (
                                 <button
-                                    onClick={() => renewSubscriptionMutation.mutate()}
-                                    className="h-9 px-4 bg-blue-600 text-white text-[12px] font-medium rounded-xl hover:bg-blue-700 transition-all uppercase tracking-wider disabled:opacity-60 disabled:cursor-not-allowed"
-                                    disabled={renewSubscriptionMutation.isPending}
+                                    onClick={() => renewMutation.mutate()}
+                                    disabled={renewMutation.isPending}
+                                    className="w-full py-2.5 bg-white text-gray-900 rounded-xl text-sm font-bold hover:bg-gray-100 transition-colors disabled:opacity-60"
                                 >
-                                    {renewSubscriptionMutation.isPending ? "Renewing..." : "Renew subscription"}
+                                    {renewMutation.isPending ? "Renewing…" : "Renew Subscription"}
                                 </button>
+                            )}
+                        </div>
+
+                        {/* Usage + billing cycle */}
+                        <div className="lg:col-span-3 space-y-4">
+                            {/* Usage meters */}
+                            <div className="grid grid-cols-2 gap-4">
+                                {/* Projects */}
+                                <div className="bg-white border border-gray-100 rounded-2xl p-5">
+                                    <div className="flex justify-between items-center mb-3">
+                                        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Projects</p>
+                                        <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                                        </svg>
+                                    </div>
+                                    <p className="text-2xl font-extrabold text-gray-900 mb-1">
+                                        {usedProjects}
+                                        <span className="text-sm font-normal text-gray-400"> / {maxProjects > 0 ? maxProjects : "∞"}</span>
+                                    </p>
+                                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                        <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${projectPct}%` }} />
+                                    </div>
+                                    <p className="text-[10px] text-gray-400 mt-1.5">{projectPct}% used</p>
+                                </div>
+
+                                {/* Members */}
+                                <div className="bg-white border border-gray-100 rounded-2xl p-5">
+                                    <div className="flex justify-between items-center mb-3">
+                                        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Members</p>
+                                        <svg className="w-4 h-4 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0" />
+                                        </svg>
+                                    </div>
+                                    <p className="text-2xl font-extrabold text-gray-900 mb-1">
+                                        {usedMembers}
+                                        <span className="text-sm font-normal text-gray-400"> / {maxMembers > 0 ? maxMembers : "∞"}</span>
+                                    </p>
+                                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                        <div className="h-full bg-violet-500 rounded-full transition-all" style={{ width: `${memberPct}%` }} />
+                                    </div>
+                                    <p className="text-[10px] text-gray-400 mt-1.5">{memberPct}% utilized</p>
+                                </div>
                             </div>
-                        )}
+
+                            {/* Billing cycle switcher */}
+                            <div className="bg-white border border-gray-100 rounded-2xl p-5">
+                                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3">Billing Cycle</p>
+                                <div className="flex flex-wrap gap-2">
+                                    {(["MONTHLY", "QUARTERLY", "HALF_YEARLY", "YEARLY"] as const).map((c) => (
+                                        <button
+                                            key={c}
+                                            onClick={() => updateCycleMutation.mutate(c)}
+                                            disabled={billingCycle === c || updateCycleMutation.isPending}
+                                            className={`px-4 py-1.5 rounded-full text-xs font-semibold border transition-all ${billingCycle === c
+                                                    ? "bg-gray-900 text-white border-gray-900"
+                                                    : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"
+                                                }`}
+                                        >
+                                            {c === "HALF_YEARLY" ? "Half-Yearly" : c.charAt(0) + c.slice(1).toLowerCase()}
+                                        </button>
+                                    ))}
+                                </div>
+                                <p className="text-[11px] text-gray-400 mt-3">
+                                    Changes apply from the next billing period.
+                                </p>
+                            </div>
+
+                            {/* Plan features */}
+                            {planObj?.features && (
+                                <div className="bg-white border border-gray-100 rounded-2xl p-5">
+                                    <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3">Plan Features</p>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {[
+                                            { key: "chat", label: "Direct Chat" },
+                                            { key: "analytics", label: "Analytics" },
+                                            { key: "notifications", label: "Notifications" },
+                                            { key: "kanban", label: "Kanban Boards" },
+                                        ].map(({ key, label }) => (
+                                            <div key={key} className="flex items-center gap-2 text-sm">
+                                                <div className={`w-4 h-4 rounded-full flex items-center justify-center ${planObj.features[key] ? "bg-green-100 text-green-600" : "bg-gray-100 text-gray-300"}`}>
+                                                    <CheckIcon />
+                                                </div>
+                                                <span className={planObj.features[key] ? "text-gray-700" : "text-gray-300 line-through"}>
+                                                    {label}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
-                    {/* Available Plans */}
-                    <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-                        <h2 className="text-[16px] font-semibold text-gray-900 mb-2">Available plans</h2>
-                        <p className="text-[12px] text-gray-400 mb-4">
-                            Switch plans at any time. Changes apply from the next billing period.
-                        </p>
-                        <ul>
-                            {plansData?.map((plan: any) => (
-                                <li
-                                    key={plan._id}
-                                    className="flex justify-between items-center py-3 border-t border-gray-50 first:border-t-0"
-                                >
-                                    <div>
-                                        <span className="text-[14px] font-medium text-gray-900">
-                                            {plan.name}
-                                        </span>
-                                        <p className="text-[12px] text-gray-400">
-                                            {`$${plan.price} / month`}
-                                        </p>
-                                    </div>
-                                    <button
-                                        onClick={() => setSelectedPlan(plan._id)}
-                                        className={`h-8 px-4 text-[12px] font-medium rounded-full transition-all uppercase tracking-wider ${
-                                            selectedPlan === plan._id
-                                                ? "bg-gray-900 text-white shadow-md"
-                                                : "bg-gray-100 text-gray-900 hover:bg-gray-200"
-                                        }`}
-                                    >
-                                        {selectedPlan === plan._id ? "Selected" : "Select"}
-                                    </button>
-                                </li>
-                            ))}
-                        </ul>
-
-                        <div className="mt-4">
-                            <button
-                                onClick={() => handlePlanChange(selectedPlan)}
-                                className="w-full h-10 bg-gray-900 text-white text-[12px] font-medium rounded-xl hover:bg-black transition-all uppercase tracking-wider disabled:opacity-60 disabled:cursor-not-allowed"
-                                disabled={!selectedPlan}
-                            >
-                                Change plan
+                    {/* Billing History Preview */}
+                    <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden">
+                        <div className="flex justify-between items-center px-5 py-4 border-b border-gray-50">
+                            <h3 className="text-sm font-bold text-gray-900">Recent Billing History</h3>
+                            <button onClick={() => setActiveTab("Billing History")} className="text-[11px] font-bold text-blue-600 hover:text-blue-700 uppercase tracking-wider">
+                                View All
                             </button>
                         </div>
-                    </div>
-                </div>
-
-                {/* Billing history bottom */}
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                    <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
-                        <h3 className="text-[13px] font-semibold text-gray-900">Billing history</h3>
-                        <button className="text-[11px] font-medium text-gray-400 hover:text-gray-900 transition-colors">Download all</button>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
-                            <thead className="bg-gray-50/60">
-                                <tr>
-                                    <th className="px-5 py-3 text-[11px] font-medium text-gray-500 uppercase tracking-[0.16em] border-b border-gray-100">Invoice date</th>
-                                    <th className="px-5 py-3 text-[11px] font-medium text-gray-500 uppercase tracking-[0.16em] border-b border-gray-100">Tier</th>
-                                    <th className="px-5 py-3 text-[11px] font-medium text-gray-500 uppercase tracking-[0.16em] border-b border-gray-100">Amount</th>
-                                    <th className="px-5 py-3 text-[11px] font-medium text-gray-500 uppercase tracking-[0.16em] border-b border-gray-100 text-right">Receipt</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-50">
-                                {history.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={4} className="px-5 py-10 text-center text-[12px] text-gray-400 italic">
-                                            No invoices yet
-                                        </td>
+                        {history.length === 0 ? (
+                            <div className="px-5 py-10 text-center text-sm text-gray-400">No billing history yet.</div>
+                        ) : (
+                            <table className="w-full text-sm text-left">
+                                <thead>
+                                    <tr className="border-b border-gray-50">
+                                        <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Plan</th>
+                                        <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Period</th>
+                                        <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Action</th>
+                                        <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-right">Amount</th>
                                     </tr>
-                                ) : (
-                                    pagedHistory.map((h: any, i: number) => (
-                                        <tr key={i} className="hover:bg-gray-50 transition-colors">
-                                            <td className="px-5 py-4 text-[13px] text-gray-600">
-                                                {formatDate(h.startDate || h.createdAt)}
+                                </thead>
+                                <tbody className="divide-y divide-gray-50">
+                                    {history.slice(-5).reverse().map((h: any, i: number) => (
+                                        <tr key={i} className="hover:bg-gray-50/50 transition-colors">
+                                            <td className="px-5 py-3.5 font-medium text-gray-900">{h.planId?.name ?? planName}</td>
+                                            <td className="px-5 py-3.5 text-gray-500">
+                                                {fmt(h.startDate)} → {fmt(h.endDate)}
                                             </td>
-                                            <td className="px-5 py-4 text-[13px] text-gray-900 font-medium">{h.planId?.name ?? "Base"}</td>
-                                            <td className="px-5 py-4 text-[13px] text-gray-600">${h.planId?.price ?? 0}</td>
-                                            <td className="px-5 py-4 text-right">
-                                                <button className="text-[11px] font-medium text-blue-600 hover:underline uppercase tracking-wide">View PDF</button>
+                                            <td className="px-5 py-3.5">
+                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${actionColor[h.action] ?? "bg-gray-100 text-gray-500"}`}>
+                                                    {actionLabel[h.action] ?? h.action}
+                                                </span>
+                                            </td>
+                                            <td className="px-5 py-3.5 font-bold text-gray-900 text-right">
+                                                ${h.planId?.price ?? planPrice}
                                             </td>
                                         </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
                     </div>
-                    {history.length > 0 && (
-                        <div className="flex items-center justify-between px-5 py-3 border-t border-gray-50 text-[12px] text-gray-500">
-                            <span>
-                                Showing{" "}
-                                <span className="font-medium">
-                                    {(currentPage - 1) * pageSize + 1}-
-                                    {Math.min(currentPage * pageSize, history.length)}
-                                </span>{" "}
-                                of <span className="font-medium">{history.length}</span>
-                            </span>
-                            <div className="inline-flex gap-1">
-                                <button
-                                    type="button"
-                                    className="h-7 px-3 rounded-lg border border-gray-200 text-[11px] text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-                                    disabled={currentPage === 1}
-                                    onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
-                                >
-                                    Prev
-                                </button>
-                                <button
-                                    type="button"
-                                    className="h-7 px-3 rounded-lg border border-gray-200 text-[11px] text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-                                    disabled={currentPage === totalPages}
-                                    onClick={() => setHistoryPage((p) => Math.min(totalPages, p + 1))}
-                                >
-                                    Next
-                                </button>
-                            </div>
+                </div>
+            )}
+
+            {/* ══════════════════════  PLANS & TIERS TAB  ══════════════════════ */}
+            {activeTab === "Plans & Tiers" && (
+                <div>
+                    <p className="text-sm text-gray-500 mb-6">Compare plans and switch at any time. Changes apply from the next billing period.</p>
+                    {!plansData || plansData.length === 0 ? (
+                        <p className="text-sm text-gray-400">No plans available.</p>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                            {[...plansData].sort((a: any, b: any) => a.price - b.price).map((p: any, idx: number) => {
+                                const isCurrent = planObj?._id === p._id;
+                                const isMiddle = idx === 1;
+                                return (
+                                    <div
+                                        key={p._id}
+                                        className={`rounded-2xl flex flex-col relative ${isCurrent
+                                                ? "border-2 border-blue-600 shadow-lg"
+                                                : isMiddle
+                                                    ? "border-2 border-gray-900 shadow-lg"
+                                                    : "border border-gray-100"
+                                            } bg-white`}
+                                    >
+                                        {isCurrent && (
+                                            <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-blue-600 text-white text-[9px] font-bold uppercase tracking-widest rounded-full">
+                                                Current Plan
+                                            </div>
+                                        )}
+                                        {!isCurrent && isMiddle && (
+                                            <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-gray-900 text-white text-[9px] font-bold uppercase tracking-widest rounded-full">
+                                                Popular
+                                            </div>
+                                        )}
+                                        <div className="p-6 flex-1">
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">{p.name}</p>
+                                            <div className="flex items-baseline gap-1 mb-5">
+                                                <span className="text-3xl font-extrabold text-gray-900">${p.price ?? 0}</span>
+                                                <span className="text-sm text-gray-400 font-medium">/mo</span>
+                                            </div>
+                                            <div className="space-y-2.5 text-sm text-gray-600">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-4 h-4 rounded-full bg-green-50 text-green-600 flex items-center justify-center shrink-0 border border-green-100"><CheckIcon /></div>
+                                                    {(p.limits?.maxProjects ?? 0) > 0 ? p.limits.maxProjects : "Unlimited"} Projects
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-4 h-4 rounded-full bg-green-50 text-green-600 flex items-center justify-center shrink-0 border border-green-100"><CheckIcon /></div>
+                                                    {(p.limits?.maxUsers ?? 0) > 0 ? p.limits.maxUsers : "Unlimited"} Members
+                                                </div>
+                                                {[
+                                                    { key: "chat", label: "Direct Chat" },
+                                                    { key: "kanban", label: "Kanban Boards" },
+                                                    { key: "analytics", label: "Analytics" },
+                                                    { key: "notifications", label: "Notifications" },
+                                                ].map(({ key, label }) => (
+                                                    <div key={key} className={`flex items-center gap-2 ${!p.features?.[key] ? "opacity-40" : ""}`}>
+                                                        <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 border ${p.features?.[key] ? "bg-green-50 text-green-600 border-green-100" : "bg-gray-50 text-gray-300 border-gray-100"}`}>
+                                                            <CheckIcon />
+                                                        </div>
+                                                        {label}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div className="px-6 pb-6">
+                                            <button
+                                                onClick={() => !isCurrent && handleSwitchPlan(p._id)}
+                                                disabled={isCurrent}
+                                                className={`w-full py-2.5 rounded-xl text-sm font-bold transition-colors ${isCurrent
+                                                        ? "bg-blue-50 text-blue-600 cursor-default"
+                                                        : isMiddle
+                                                            ? "bg-gray-900 text-white hover:bg-black"
+                                                            : "border border-gray-200 text-gray-900 hover:bg-gray-50"
+                                                    }`}
+                                            >
+                                                {isCurrent ? "Your Current Plan" : `Switch to ${p.name}`}
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     )}
                 </div>
+            )}
 
-                {/* Plan comparison */}
-                {plansData && plansData.length > 0 && (
-                    <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-                        <div className="flex items-center justify-between mb-4">
-                            <div>
-                                <h2 className="text-[16px] font-semibold text-gray-900">Plan comparison</h2>
-                                <p className="text-[12px] text-gray-400">
-                                    See what each plan includes and choose the one that fits your team.
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            {plansData
-                                .slice()
-                                .sort((a: any, b: any) => a.price - b.price)
-                                .map((p: any) => {
-                                    const isCurrent = planObj?._id && planObj._id === p._id;
-                                    return (
-                                        <div
-                                            key={p._id}
-                                            className={`rounded-2xl border p-5 flex flex-col gap-3 ${
-                                                isCurrent
-                                                    ? "border-gray-900 bg-gray-900 text-white shadow-lg"
-                                                    : "border-gray-100 bg-gray-50"
-                                            }`}
-                                        >
-                                            <div className="flex items-center justify-between gap-2">
-                                                <div>
-                                                    <p className="text-[11px] uppercase tracking-[0.16em] font-semibold opacity-70">
-                                                        {p.name}
-                                                    </p>
-                                                    <div className="flex items-baseline gap-1 mt-1">
-                                                        <span className="text-2xl font-bold">
-                                                            ${p.price ?? 0}
-                                                        </span>
-                                                        <span className="text-[11px] opacity-70">/month</span>
-                                                    </div>
-                                                </div>
-                                                {isCurrent && (
-                                                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white/10 border border-white/20">
-                                                        Current
-                                                    </span>
-                                                )}
-                                            </div>
-
-                                            <div className={`text-[12px] ${isCurrent ? "text-gray-200" : "text-gray-500"}`}>
-                                                <p>
-                                                    Up to{" "}
-                                                    <span className="font-medium">
-                                                        {p.limits?.maxProjects ?? "—"}
-                                                    </span>{" "}
-                                                    projects ·{" "}
-                                                    <span className="font-medium">
-                                                        {p.limits?.maxUsers ?? "—"}
-                                                    </span>{" "}
-                                                    members
-                                                </p>
-                                            </div>
-
-                                            <ul className="mt-1 space-y-1.5 text-[12px]">
-                                                <li className="flex items-center gap-2">
-                                                    <span
-                                                        className={`w-1.5 h-1.5 rounded-full ${
-                                                            p.features?.chat ? "bg-emerald-400" : "bg-gray-400/40"
-                                                        }`}
-                                                    />
-                                                    <span className={p.features?.chat ? "" : "opacity-60"}>
-                                                        Direct chat
-                                                    </span>
-                                                </li>
-                                                <li className="flex items-center gap-2">
-                                                    <span
-                                                        className={`w-1.5 h-1.5 rounded-full ${
-                                                            p.features?.kanban ? "bg-emerald-400" : "bg-gray-400/40"
-                                                        }`}
-                                                    />
-                                                    <span className={p.features?.kanban ? "" : "opacity-60"}>
-                                                        Kanban boards
-                                                    </span>
-                                                </li>
-                                                <li className="flex items-center gap-2">
-                                                    <span
-                                                        className={`w-1.5 h-1.5 rounded-full ${
-                                                            p.features?.notifications ? "bg-emerald-400" : "bg-gray-400/40"
-                                                        }`}
-                                                    />
-                                                    <span className={p.features?.notifications ? "" : "opacity-60"}>
-                                                        In‑app notifications
-                                                    </span>
-                                                </li>
-                                                <li className="flex items-center gap-2">
-                                                    <span
-                                                        className={`w-1.5 h-1.5 rounded-full ${
-                                                            p.features?.analytics ? "bg-emerald-400" : "bg-gray-400/40"
-                                                        }`}
-                                                    />
-                                                    <span className={p.features?.analytics ? "" : "opacity-60"}>
-                                                        Workspace analytics
-                                                    </span>
-                                                </li>
-                                            </ul>
-
-                                            <div className="mt-3">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setSelectedPlan(p._id);
-                                                        handlePlanChange(p._id);
-                                                    }}
-                                                    className={`w-full h-9 text-[12px] font-semibold rounded-lg border ${
-                                                        isCurrent
-                                                            ? "bg-white text-gray-900 border-transparent hover:bg-gray-100"
-                                                            : "bg-gray-900 text-white border-gray-900 hover:bg-black"
-                                                    }`}
-                                                >
-                                                    {isCurrent ? "Manage current plan" : `Switch to ${p.name}`}
-                                                </button>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                        </div>
+            {/* ══════════════════════  BILLING HISTORY TAB  ════════════════════ */}
+            {activeTab === "Billing History" && (
+                <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden">
+                    <div className="px-5 py-4 border-b border-gray-50 flex justify-between items-center">
+                        <h3 className="text-sm font-bold text-gray-900">Full Billing History</h3>
+                        <span className="text-[11px] text-gray-400">{history.length} records</span>
                     </div>
-                )}
-            </div>
+                    {history.length === 0 ? (
+                        <div className="px-5 py-12 text-center text-sm text-gray-400">No billing history available yet.</div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm text-left">
+                                <thead>
+                                    <tr className="border-b border-gray-100 bg-gray-50/50">
+                                        <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">#</th>
+                                        <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Plan</th>
+                                        <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Action</th>
+                                        <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Start</th>
+                                        <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">End</th>
+                                        <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Changed</th>
+                                        <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-right">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50">
+                                    {[...history].reverse().map((h: any, i: number) => (
+                                        <tr key={i} className="hover:bg-gray-50/50 transition-colors">
+                                            <td className="px-5 py-3 text-gray-400 text-[11px]">{history.length - i}</td>
+                                            <td className="px-5 py-3 font-medium text-gray-900">{h.planId?.name ?? planName}</td>
+                                            <td className="px-5 py-3">
+                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${actionColor[h.action] ?? "bg-gray-100 text-gray-500"}`}>
+                                                    {actionLabel[h.action] ?? h.action}
+                                                </span>
+                                            </td>
+                                            <td className="px-5 py-3 text-gray-500">{fmt(h.startDate)}</td>
+                                            <td className="px-5 py-3 text-gray-500">{fmt(h.endDate)}</td>
+                                            <td className="px-5 py-3 text-gray-500">{fmt(h.changedAt)}</td>
+                                            <td className="px-5 py-3 font-bold text-gray-900 text-right">${h.planId?.price ?? planPrice}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 };

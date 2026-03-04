@@ -22,7 +22,7 @@ export const NotificationDropdown = () => {
         });
         socketRef.current = socket;
 
-        socket.on("newnotification", (data: any) => {
+        socket.on("newnotification", () => {
             // Unread count is updated real-time, invalidate queries to fetch
             qc.invalidateQueries({ queryKey: ["notifications", slug] });
         });

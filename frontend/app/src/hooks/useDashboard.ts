@@ -25,6 +25,17 @@ export const useActivityStats = () => {
     });
 };
 
+export const useTaskActivityChart = (days = 14) => {
+    const { slug } = useParams();
+    return useQuery({
+        queryKey: ["task-activity-chart", slug, days],
+        queryFn: async () => {
+            const res = await api.get(`/${slug}/activity/task-chart?days=${days}`);
+            return res.data; // { daily: [...], totals: [...] }
+        },
+    });
+};
+
 
 
 // ── Audit ─────────────────────────────────────────────────────────────────────

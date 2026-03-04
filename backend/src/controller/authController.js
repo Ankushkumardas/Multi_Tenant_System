@@ -766,10 +766,40 @@ export const getTenantUsers = async (req, res) => {
     const users = await User.find({ tenantId }).select(
       "-password -refreshToken",
     );
+    const invites = await Invite.find({
+      tenantId,
+      isUsed: false,
+      expiresAt: { $gt: Date.now() },
+    });
     return res.status(200).json({
       message: "Users fetched successfully",
       users,
+      invites,
     });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const revokeInvite = async (req, res) => {
+  try {
+    const { inviteId } = req.params;
+    const { tenantId } = req.user;
+    const invite = await Invite.findOneAndDelete({
+      _id: inviteId,
+      tenantId,
+      isUsed: false,
+    });
+    if (!invite) {
+      return res
+        .status(404)
+        .json({ message: "Invite not found or already used." });
+    }
+    // Also remove the invited user record
+    if (invite.userId) {
+      await User.findByIdAndDelete(invite.userId);
+    }
+    return res.status(200).json({ message: "Invite revoked successfully" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

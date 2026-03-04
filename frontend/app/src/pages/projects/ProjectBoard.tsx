@@ -8,8 +8,20 @@ import { useState } from "react";
 import { api } from "../../lib/axios";
 import { motion, AnimatePresence } from "framer-motion";
 
-// TODO: Implement actual drag-and-drop using @dnd-kit
-import { DndContext } from "@dnd-kit/core";
+// ── dnd-kit imports ──────────────────────────────────────────────────────────
+import {
+    DndContext,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    closestCorners,
+    DragOverlay,
+    defaultDropAnimationSideEffects,
+} from "@dnd-kit/core";
+import {
+    SortableContext,
+    verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 
 const ProjectBoard = () => {
     const { slug, projectId } = useParams();
@@ -33,6 +45,16 @@ const ProjectBoard = () => {
 
     const [newSectionName, setNewSectionName] = useState("");
     const [showAddSection, setShowAddSection] = useState(false);
+
+    // ── Drag state ──
+    const [activeTask, setActiveTask] = useState<any>(null);
+
+    // ── Sensors ──
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: { distance: 8 },
+        })
+    );
 
     const createSectionMutation = useMutation({
         mutationFn: async () => api.post(`/${slug}/projects/${projectId}/sections`, { name: newSectionName }),
@@ -58,9 +80,71 @@ const ProjectBoard = () => {
         },
     });
 
-    const handleDragEnd = (event: any) => {
-        console.log("Drag end", event);
+    const updateTaskSectionMutation = useMutation({
+        mutationFn: async ({ taskId, sectionId }: { taskId: string; sectionId: string }) =>
+            api.put(`/${slug}/projects/${projectId}/tasks/${taskId}`, { sectionId }),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ["board", slug, projectId] }),
+    });
+
+    // ── DnD Handlers ──
+    const handleDragStart = (event: any) => {
+        const { active } = event;
+        // find task in board
+        let foundTask = null;
+        for (const col of board) {
+            const task = col.tasks.find((t: any) => t._id === active.id);
+            if (task) {
+                foundTask = task;
+                break;
+            }
+        }
+        setActiveTask(foundTask);
     };
+
+    const handleDragEnd = (event: any) => {
+        const { active, over } = event;
+        setActiveTask(null);
+
+        if (!over) return;
+
+        const activeId = active.id;
+        const overId = over.id;
+
+        // If dropped over a column or another task
+        // We need to find which column the 'overId' belongs to
+        let overSectionId = "";
+
+        // 1. Is overId a section ID?
+        const isOverSection = board.some(col => col.section._id === overId);
+        if (isOverSection) {
+            overSectionId = overId;
+        } else {
+            // 2. Is overId a task ID? Find the section it belongs to
+            for (const col of board) {
+                if (col.tasks.some((t: any) => t._id === overId)) {
+                    overSectionId = col.section._id;
+                    break;
+                }
+            }
+        }
+
+        if (!overSectionId) return;
+
+        // Find the active task's current section
+        let activeSectionId = "";
+        for (const col of board) {
+            if (col.tasks.some((t: any) => t._id === activeId)) {
+                activeSectionId = col.section._id;
+                break;
+            }
+        }
+
+        // If moved to a different section, update backend
+        if (activeSectionId !== overSectionId) {
+            updateTaskSectionMutation.mutate({ taskId: activeId, sectionId: overSectionId });
+        }
+    };
+
 
     return (
         <motion.div
@@ -91,39 +175,73 @@ const ProjectBoard = () => {
                     ))}
                 </div>
             ) : (
-                <DndContext onDragEnd={handleDragEnd}>
+                <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCorners}
+                    onDragStart={handleDragStart}
+                    onDragEnd={handleDragEnd}
+                >
                     <div className="flex gap-5 overflow-x-auto pb-6 scrollbar-hide flex-1">
                         {board.map((item: any, idx: number) => (
                             <div key={item.section._id} className="w-64 shrink-0 flex flex-col">
-                                <div className="flex items-center gap-2 mb-3">
+                                <div className="flex items-center gap-2 mb-3 px-1">
                                     <div className={`w-1.5 h-1.5 rounded-full ${idx === 0 ? "bg-red-400" : idx === 1 ? "bg-amber-400" : idx === 2 ? "bg-green-400" : "bg-violet-400"}`} />
-                                    <span className="text-[10px] font-medium text-gray-500 uppercase tracking-widest flex-1">{item.section.name}</span>
-                                    <span className="text-[10px] text-gray-300">{item.tasks?.length ?? 0}</span>
+                                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.15em] flex-1">{item.section.name}</span>
+                                    <span className="bg-gray-100 text-gray-400 text-[9px] px-1.5 py-0.5 rounded-full font-bold">{item.tasks?.length ?? 0}</span>
                                 </div>
-                                <div className="space-y-2.5 flex-1 overflow-y-auto min-h-[150px] p-1 -m-1">
-                                    {item.tasks?.map((task: any) => (
-                                        <TaskRow
-                                            key={task._id}
-                                            task={task}
-                                            projectId={projectId!}
-                                            slug={slug!}
-                                            qc={qc}
-                                            projectMembers={members}
-                                            sections={board.map((i: any) => i.section)}
-                                        />
-                                    ))}
-                                    {canCreateTask && (
-                                        <button
-                                            onClick={() => { setTaskSectionId(item.section._id); setShowAddTask(true); }}
-                                            className="w-full py-2.5 border border-dashed border-gray-200 rounded-xl text-[11px] text-gray-400 hover:text-gray-600 hover:border-gray-300 transition-all"
-                                        >
-                                            + Add Task
-                                        </button>
-                                    )}
-                                </div>
+
+                                <SortableContext
+                                    id={item.section._id}
+                                    items={item.tasks.map((t: any) => t._id)}
+                                    strategy={verticalListSortingStrategy}
+                                >
+                                    <div className="space-y-2.5 flex-1 overflow-y-auto min-h-[200px] p-1 -m-1 bg-gray-50/50 rounded-2xl border border-transparent hover:border-gray-100 transition-colors">
+                                        {item.tasks?.map((task: any) => (
+                                            <TaskRow
+                                                key={task._id}
+                                                task={task}
+                                                projectId={projectId!}
+                                                slug={slug!}
+                                                qc={qc}
+                                                projectMembers={members}
+                                                sections={board.map((i: any) => i.section)}
+                                            />
+                                        ))}
+
+                                        {canCreateTask && (
+                                            <button
+                                                onClick={() => { setTaskSectionId(item.section._id); setShowAddTask(true); }}
+                                                className="w-full py-2.5 bg-white/40 border border-dashed border-gray-200 rounded-xl text-[10px] font-bold uppercase tracking-wider text-gray-400 hover:text-gray-600 hover:border-gray-300 hover:bg-white transition-all mt-2"
+                                            >
+                                                + Add Task
+                                            </button>
+                                        )}
+                                    </div>
+                                </SortableContext>
                             </div>
                         ))}
                     </div>
+
+                    <DragOverlay dropAnimation={{
+                        sideEffects: defaultDropAnimationSideEffects({
+                            styles: {
+                                active: { opacity: "0.5" }
+                            }
+                        })
+                    }}>
+                        {activeTask ? (
+                            <div className="w-64 scale-105 rotate-2">
+                                <TaskRow
+                                    task={activeTask}
+                                    projectId={projectId!}
+                                    slug={slug!}
+                                    qc={qc}
+                                    projectMembers={members}
+                                    sections={board.map((i: any) => i.section)}
+                                />
+                            </div>
+                        ) : null}
+                    </DragOverlay>
                 </DndContext>
             )}
 

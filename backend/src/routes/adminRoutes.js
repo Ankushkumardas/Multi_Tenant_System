@@ -6,6 +6,7 @@ import {
   updateUserRole,
   forceLogoutuser,
   getTenantUsers,
+  revokeInvite,
 } from "../controller/authController.js";
 
 const router = express.Router({ mergeParams: true });
@@ -35,5 +36,13 @@ router.post(
 );
 
 router.get("/get-users", authenticate, checkTenant, getTenantUsers);
+
+router.post(
+  "/revoke-invite/:inviteId",
+  authenticate,
+  checkTenant,
+  authorize("OWNER", "ADMIN"),
+  revokeInvite,
+);
 
 export default router;

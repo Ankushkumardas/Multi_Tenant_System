@@ -5,6 +5,7 @@ import {
   useWorkspaceMembers,
   useActivityFeed,
   useActivityStats,
+  useTaskActivityChart,
 } from "../../hooks/useDashboard";
 import { useProjects } from "../../hooks/useProjects";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -42,9 +43,13 @@ const DashboardPage = () => {
   const members: any[] = teamData?.users ?? [];
   const activities: any[] = activityData?.activities ?? activityData ?? [];
   const actStats: any[] = activityStatsData?.stats ?? [];
+  const { data: taskChartData } = useTaskActivityChart(7);
+  const taskDaily: any[] = taskChartData?.daily ?? [];
+  const taskTotals: any[] = taskChartData?.totals ?? [];
   const loading = pL || sL || tL;
 
-  // Activity bar chart — group activities by day (last 7 days)
+  // Activity bar chart — group activities by day (last 7 days) — pixel heights
+  const CHART_H = 160;
   const dailyActivity = useMemo(() => {
     const days: Record<string, number> = {};
     const labels: string[] = [];
@@ -63,6 +68,50 @@ const DashboardPage = () => {
     const max = Math.max(...values, 1);
     return { labels, values, max };
   }, [activities]);
+
+  // Task chart – last 7 days
+  const ACTION_COLORS: Record<string, string> = {
+    TASK_CREATED: "#3b82f6",
+    TASK_UPDATED: "#8b5cf6",
+    TASK_DELETED: "#f43f5e",
+    TASK_ASSIGNED: "#06b6d4",
+    TASK_STATUS_CHANGED: "#10b981",
+    TASK_PRIORITY_CHANGED: "#f59e0b",
+    TASK_DUE_DATE_CHANGED: "#f97316",
+  };
+  const ACTION_LABEL: Record<string, string> = {
+    TASK_CREATED: "Created",
+    TASK_UPDATED: "Updated",
+    TASK_DELETED: "Deleted",
+    TASK_ASSIGNED: "Assigned",
+    TASK_STATUS_CHANGED: "Status",
+    TASK_PRIORITY_CHANGED: "Priority",
+    TASK_DUE_DATE_CHANGED: "Due Date",
+  };
+
+  const { taskDayMap, taskDayTotals, taskDayLabels, taskDayKeys, taskMax, taskTotalMap, taskGrandTotal, activeActions } = useMemo(() => {
+    const labels7: string[] = [];
+    const keys7: string[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      keys7.push(d.toISOString().slice(0, 10));
+      labels7.push(d.toLocaleDateString("en-US", { weekday: "short" }));
+    }
+    const map: Record<string, Record<string, number>> = {};
+    keys7.forEach((k) => { map[k] = {}; });
+    taskDaily.forEach((row: any) => {
+      const { date, actionType } = row._id;
+      if (map[date]) map[date][actionType] = (map[date][actionType] || 0) + row.count;
+    });
+    const totals7 = keys7.map((k) => Object.values(map[k]).reduce((a, b) => a + b, 0));
+    const max7 = Math.max(...totals7, 1);
+    const tm: Record<string, number> = {};
+    taskTotals.forEach((t: any) => { tm[t._id] = t.count; });
+    const gt = Object.values(tm).reduce((a, b) => a + b, 0);
+    const aa = Object.entries(ACTION_COLORS).filter(([k]) => (tm[k] ?? 0) > 0);
+    return { taskDayMap: map, taskDayTotals: totals7, taskDayLabels: labels7, taskDayKeys: keys7, taskMax: max7, taskTotalMap: tm, taskGrandTotal: gt, activeActions: aa };
+  }, [taskDaily, taskTotals]);
 
   return (
     <DashboardLayout title="Dashboard" noPadding>
@@ -90,23 +139,27 @@ const DashboardPage = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-          {/* ── Activity Bar Chart (left 2 cols) ── */}
+          {/* ── Activity Bar Chart ── */}
           <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-[14px] font-bold text-gray-900">Activity (Last 7 Days)</h3>
               <Link to={`/${slug}/activity`} className="text-[11px] font-bold text-blue-600 hover:underline uppercase tracking-wider">View All</Link>
             </div>
-            <div className="flex items-end justify-between gap-3 h-[160px]">
+            <div className="flex items-end gap-2" style={{ height: CHART_H }}>
               {dailyActivity.labels.map((label, i) => {
-                const pct = dailyActivity.max > 0 ? (dailyActivity.values[i] / dailyActivity.max) * 100 : 0;
+                const px = dailyActivity.max > 0
+                  ? Math.max(Math.round((dailyActivity.values[i] / dailyActivity.max) * CHART_H), dailyActivity.values[i] > 0 ? 6 : 2)
+                  : 2;
                 return (
-                  <div key={label} className="flex-1 flex flex-col items-center gap-2 group">
-                    <span className="text-[10px] font-bold text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">{dailyActivity.values[i]}</span>
+                  <div key={label} className="flex-1 flex flex-col items-center justify-end gap-2 group relative h-full">
+                    <div className="absolute -top-7 left-1/2 -translate-x-1/2 hidden group-hover:flex bg-gray-900 text-white text-[9px] px-2 py-1 rounded-md whitespace-nowrap z-10 shadow">
+                      {label}: {dailyActivity.values[i]}
+                    </div>
                     <motion.div
                       initial={{ height: 0 }}
-                      animate={{ height: `${Math.max(pct, 4)}%` }}
+                      animate={{ height: px }}
                       transition={{ duration: 0.6, delay: i * 0.05 }}
-                      className="w-full max-w-[40px] bg-blue-100 group-hover:bg-blue-500 rounded-lg transition-colors cursor-default"
+                      className="w-full max-w-[40px] bg-blue-100 group-hover:bg-blue-500 rounded-t-lg transition-colors cursor-default"
                     />
                     <span className="text-[10px] font-medium text-gray-400">{label}</span>
                   </div>
@@ -145,6 +198,79 @@ const DashboardPage = () => {
             )}
           </div>
         </div>
+
+        {/* ── Task Activity Chart ── */}
+        {taskGrandTotal > 0 && (
+          <div className="bg-white rounded-2xl border border-gray-100 p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-[14px] font-bold text-gray-900">Task Activity (Last 7 Days)</h3>
+              <span className="text-[11px] text-gray-400">{taskGrandTotal} task events</span>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                <div className="flex items-end gap-2" style={{ height: 120 }}>
+                  {taskDayKeys.map((key, i) => {
+                    const dayTotal = taskDayTotals[i];
+                    const barH = taskMax > 0 ? Math.max(Math.round((dayTotal / taskMax) * 120), dayTotal > 0 ? 4 : 2) : 2;
+                    const segments = Object.entries(ACTION_COLORS)
+                      .filter(([a]) => (taskDayMap[key]?.[a] ?? 0) > 0)
+                      .map(([a, color]) => ({
+                        action: a, color,
+                        h: dayTotal > 0 ? Math.max(1, Math.round(((taskDayMap[key][a] || 0) / dayTotal) * barH)) : 0,
+                      }));
+                    return (
+                      <div key={key} className="flex-1 flex flex-col items-center justify-end gap-2 group relative h-full">
+                        <div className="absolute -top-7 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col bg-gray-900 text-white text-[8px] px-2 py-1.5 rounded-lg whitespace-nowrap z-10 shadow-xl gap-0.5">
+                          <span className="font-bold">{taskDayLabels[i]}</span>
+                          {segments.map((s) => (
+                            <span key={s.action} className="flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: s.color }} />
+                              {ACTION_LABEL[s.action]}: {taskDayMap[key][s.action]}
+                            </span>
+                          ))}
+                          {dayTotal === 0 && <span className="text-gray-400">No activity</span>}
+                        </div>
+                        <div className="w-full max-w-[40px] rounded-t-lg overflow-hidden flex flex-col-reverse" style={{ height: barH }}>
+                          {segments.length === 0
+                            ? <div className="flex-1 bg-gray-100" />
+                            : segments.map((s) => (
+                              <motion.div key={s.action} initial={{ height: 0 }} animate={{ height: s.h }} transition={{ duration: 0.5, delay: i * 0.04 }} style={{ backgroundColor: s.color }} className="w-full" />
+                            ))}
+                        </div>
+                        <span className="text-[10px] font-medium text-gray-400">{taskDayLabels[i]}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3">
+                  {activeActions.map(([key, color]) => (
+                    <span key={key} className="flex items-center gap-1 text-[9px] text-gray-500 font-medium">
+                      <span className="w-2 h-2 rounded-sm" style={{ backgroundColor: color }} />
+                      {ACTION_LABEL[key]}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Breakdown</p>
+                {activeActions.map(([key, color], i) => {
+                  const count = taskTotalMap[key] ?? 0;
+                  const pct = taskGrandTotal > 0 ? Math.round((count / taskGrandTotal) * 100) : 0;
+                  return (
+                    <div key={key} className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                      <span className="text-[11px] text-gray-600 w-16 shrink-0">{ACTION_LABEL[key]}</span>
+                      <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.6, delay: i * 0.07 }} className="h-full rounded-full" style={{ backgroundColor: color }} />
+                      </div>
+                      <span className="text-[11px] font-bold text-gray-700 w-5 text-right">{count}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
