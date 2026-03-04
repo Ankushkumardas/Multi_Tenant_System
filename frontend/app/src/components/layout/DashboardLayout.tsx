@@ -180,10 +180,23 @@ const Sidebar = ({ open, onClose }: SidebarProps) => {
 
 // ── Top bar ───────────────────────────────────────────────────────────────────
 
-const TopBar = ({ }: { onMenuClick: () => void }) => {
+const TopBar = ({ onMenuClick }: { onMenuClick: () => void }) => {
     const { user } = useAuthStore();
     return (
-        <header className="h-14 bg-white border-b border-gray-100 flex items-center justify-end px-4 shrink-0 sticky top-0 z-30">
+        <header className="h-14 bg-white border-b border-gray-100 flex items-center justify-between px-4 shrink-0 sticky top-0 z-30">
+            {/* Hamburger menu for mobile */}
+            <button
+                onClick={onMenuClick}
+                className="lg:hidden p-2 -ml-2 text-gray-400 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
+            >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+
+            {/* Spacer for desktop to keep right alignment */}
+            <div className="hidden lg:block flex-1" />
+
             <div className="flex items-center gap-4">
                 <NotificationDropdown />
                 <div className="flex items-center gap-2.5">

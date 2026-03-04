@@ -19,6 +19,7 @@ const ChatPage = () => {
     const scrollRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [showMobileSidebar, setShowMobileSidebar] = useState(true);
     const [replyingTo, setReplyingTo] = useState<any>(null);
     const [activeThread, setActiveThread] = useState<any>(null);
     const [threadMessages, setThreadMessages] = useState<any[]>([]);
@@ -346,7 +347,7 @@ const ChatPage = () => {
             <div className="w-full h-[calc(100vh-64px)] bg-white flex overflow-hidden">
 
                 {/* ── Chat Sidebar ── */}
-                <div className="w-80 border-r border-gray-100 flex flex-col bg-gray-50/30">
+                <div className={`${showMobileSidebar ? 'flex' : 'hidden'} md:flex w-full md:w-80 border-r border-gray-100 flex-col bg-gray-50/30 absolute md:relative inset-0 z-10 md:z-auto`}>
                     <div className="p-6 border-b border-gray-50 flex items-center justify-between">
                         <div>
                             <div className="flex items-center gap-2">
@@ -381,7 +382,7 @@ const ChatPage = () => {
                                 rooms.filter(r => r.type !== "DIRECT").map(room => (
                                     <button
                                         key={room._id}
-                                        onClick={() => { setActiveRoom(room); fetchMessages(room._id); }}
+                                        onClick={() => { setActiveRoom(room); fetchMessages(room._id); setShowMobileSidebar(false); }}
                                         className={`w-full flex items-center gap-3 p-2 rounded-2xl transition-all ${activeRoom?._id === room._id ? "bg-white shadow-md border border-gray-100" : "hover:bg-gray-100/50 text-gray-500 hover:text-gray-900"}`}
                                     >
                                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-[13px] font-medium ${activeRoom?._id === room._id ? "bg-gray-900 text-white" : "bg-gray-200 text-gray-500"}`}>
@@ -434,7 +435,7 @@ const ChatPage = () => {
                                     return (
                                         <button
                                             key={member._id}
-                                            onClick={() => handleOpenDM(member._id)}
+                                            onClick={() => { handleOpenDM(member._id); setShowMobileSidebar(false); }}
                                             className={`w-full flex items-center gap-3 p-2 rounded-2xl transition-all ${isActive ? "bg-white shadow-md border border-gray-100" : "hover:bg-gray-100/50 text-gray-500 hover:text-gray-900"}`}
                                         >
                                             <div className="relative">
@@ -472,23 +473,32 @@ const ChatPage = () => {
                 </div>
 
                 {/* ── Main Chat Area ── */}
-                <div className="flex-1 flex flex-col relative bg-white">
+                <div className={`${showMobileSidebar ? 'hidden' : 'flex'} md:flex flex-1 flex-col relative bg-white w-full`}>
                     {activeRoom ? (
                         <>
                             {/* Chat Header */}
-                            <div className="h-20 border-b border-gray-50 flex items-center justify-between px-8 bg-white/80 backdrop-blur-md sticky top-0 z-10">
-                                <div>
-                                    <h3 className="text-[15px] font-medium text-gray-900 tracking-tight">{activeRoom.name}</h3>
-                                    <div className="flex items-center gap-1.5 mt-0.5">
-                                        <div className={`w-1.5 h-1.5 rounded-full ${typingUsers[activeRoom._id]?.length > 0 ? "bg-emerald-400 animate-pulse" : "bg-green-400"}`} />
-                                        <span className="text-[10px] text-gray-400 uppercase tracking-widest font-medium">
-                                            {typingUsers[activeRoom._id]?.length > 0
-                                                ? `${typingUsers[activeRoom._id].join(", ")} is typing...`
-                                                : "Channel Active"
-                                            }
-                                        </span>
+                            <div className="h-20 border-b border-gray-50 flex items-center justify-between px-4 md:px-8 bg-white/80 backdrop-blur-md sticky top-0 z-10">
+                                <div className="flex items-center gap-3">
+                                    {/* Back button - mobile only */}
+                                    <button
+                                        onClick={() => setShowMobileSidebar(true)}
+                                        className="md:hidden p-1.5 text-gray-400 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
+                                    </button>
+                                    <div>
+                                        <h3 className="text-[15px] font-medium text-gray-900 tracking-tight">{activeRoom.name}</h3>
+                                        <div className="flex items-center gap-1.5 mt-0.5">
+                                            <div className={`w-1.5 h-1.5 rounded-full ${typingUsers[activeRoom._id]?.length > 0 ? "bg-emerald-400 animate-pulse" : "bg-green-400"}`} />
+                                            <span className="text-[10px] text-gray-400 uppercase tracking-widest font-medium">
+                                                {typingUsers[activeRoom._id]?.length > 0
+                                                    ? `${typingUsers[activeRoom._id].join(", ")} is typing...`
+                                                    : "Channel Active"
+                                                }
+                                            </span>
+                                        </div>
                                     </div>
-                                </div>
+                                </div>{/* end left flex group */}
                                 <div className="flex items-center gap-3">
                                     <button
                                         onClick={() => setIsSearchOpen(true)}

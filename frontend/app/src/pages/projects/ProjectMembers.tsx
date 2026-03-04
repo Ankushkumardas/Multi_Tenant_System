@@ -61,7 +61,7 @@ const ProjectMembers = () => {
             <div className="max-w-[1400px] mx-auto grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 2xl:gap-8">
 
                 {/* ── LEFT COLUMN: MEMBERS ── */}
-                <div className="space-y-3">
+                <div className="space-y-3 md:col-span-1">
                     <div>
                         <h2 className="text-[12px] font-medium text-gray-900 uppercase tracking-widest">Team</h2>
                         <p className="text-[11px] text-gray-400 mt-1">{members.length} member{members.length !== 1 ? "s" : ""}</p>
@@ -125,7 +125,7 @@ const ProjectMembers = () => {
                 </div>
 
                 {/* ── RIGHT COLUMN: SETTINGS ── */}
-                <div className="space-y-3">
+                <div className="space-y-3 md:col-span-2 lg:col-span-3">
                     <div>
                         <h2 className="text-[12px] font-medium text-gray-900 uppercase tracking-widest">Settings</h2>
                         <p className="text-[11px] text-gray-400 mt-1">Project configuration</p>

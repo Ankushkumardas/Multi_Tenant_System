@@ -100,7 +100,7 @@ const ProjectMapDetailPage = () => {
         return (
             <div className="space-y-4 animate-pulse">
                 <div className="h-8 w-64 bg-gray-200 rounded-xl" />
-                <div className="grid grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {Array(4).fill(0).map((_, i) => <div key={i} className="h-28 bg-gray-100 rounded-2xl" />)}
                 </div>
                 <div className="h-64 bg-gray-100 rounded-2xl" />

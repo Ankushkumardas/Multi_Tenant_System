@@ -98,20 +98,20 @@ const MembersPage = () => {
                         <p className="text-[13px] font-bold text-gray-900">Roles Distribution</p>
                         <button className="text-[12px] font-medium text-blue-600 hover:text-blue-700">Manage Permissions</button>
                     </div>
-                    <div className="flex gap-8">
-                        <div>
+                    <div className="flex flex-wrap gap-6 sm:gap-8">
+                        <div className="flex-1 min-w-[100px]">
                             <p className="text-[10px] font-bold text-gray-400 uppercase mb-1 border-l-2 border-blue-600 pl-2">Admins</p>
                             <p className="text-lg font-bold text-gray-900 pl-2 border-l-2 border-transparent">{rolesCount['OWNER'] || 0 + rolesCount['ADMIN'] || 0}</p>
                         </div>
-                        <div>
+                        <div className="flex-1 min-w-[100px]">
                             <p className="text-[10px] font-bold text-gray-400 uppercase mb-1 border-l-2 border-emerald-500 pl-2">Managers</p>
                             <p className="text-lg font-bold text-gray-900 pl-2 border-l-2 border-transparent">{rolesCount['MANAGER'] || 0}</p>
                         </div>
-                        <div>
+                        <div className="flex-1 min-w-[100px]">
                             <p className="text-[10px] font-bold text-gray-400 uppercase mb-1 border-l-2 border-orange-500 pl-2">Editors/Users</p>
                             <p className="text-lg font-bold text-gray-900 pl-2 border-l-2 border-transparent">{rolesCount['USER'] || 0}</p>
                         </div>
-                        <div>
+                        <div className="flex-1 min-w-[100px]">
                             <p className="text-[10px] font-bold text-gray-400 uppercase mb-1 border-l-2 border-gray-300 pl-2">Viewers</p>
                             <p className="text-lg font-bold text-gray-900 pl-2 border-l-2 border-transparent">{rolesCount['VIEWER'] || 0}</p>
                         </div>
@@ -162,86 +162,88 @@ const MembersPage = () => {
                         <button className="p-1 hover:text-gray-900 transition-colors"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg></button>
                     </div>
                 </div>
-                <table className="w-full text-left">
-                    <thead>
-                        <tr className="border-b border-gray-100">
-                            <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Member</th>
-                            <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Role</th>
-                            <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Status</th>
-                            <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Last Active</th>
-                            <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                        {isLoading ? (
-                            <tr><td colSpan={5} className="px-6 py-10 text-center text-gray-400 text-sm">Loading...</td></tr>
-                        ) : (
-                            paginatedMembers.map((member: any) => (
-                                <tr key={member._id} className="hover:bg-gray-50/50 transition-colors group">
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold uppercase shrink-0">
-                                                {member.name?.[0] || member.email?.[0] || "U"}
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left min-w-[800px]">
+                        <thead>
+                            <tr className="border-b border-gray-100">
+                                <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Member</th>
+                                <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Role</th>
+                                <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Status</th>
+                                <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Last Active</th>
+                                <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                            {isLoading ? (
+                                <tr><td colSpan={5} className="px-6 py-10 text-center text-gray-400 text-sm">Loading...</td></tr>
+                            ) : (
+                                paginatedMembers.map((member: any) => (
+                                    <tr key={member._id} className="hover:bg-gray-50/50 transition-colors group">
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold uppercase shrink-0">
+                                                    {member.name?.[0] || member.email?.[0] || "U"}
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-bold text-gray-900">{member.name || "User"}</p>
+                                                    <p className="text-xs text-gray-500">{member.email}</p>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <p className="text-sm font-bold text-gray-900">{member.name || "User"}</p>
-                                                <p className="text-xs text-gray-500">{member.email}</p>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        {['OWNER', 'ADMIN'].includes(user?.role || '') && member._id !== user?._id && member.role !== 'OWNER' ? (
-                                            <select
-                                                value={member.role}
-                                                onChange={(e) => updateRoleMutation.mutate({ userId: member._id, role: e.target.value })}
-                                                className="border-none bg-transparent cursor-pointer text-sm font-medium text-gray-700 outline-none focus:ring-0"
-                                            >
-                                                <option value="ADMIN">Super Admin</option>
-                                                <option value="MANAGER">Manager</option>
-                                                <option value="USER">User</option>
-                                                <option value="VIEWER">Viewer</option>
-                                            </select>
-                                        ) : (
-                                            <span className="text-sm font-medium text-gray-700">{member.role}</span>
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        {member.status === 'ACTIVE' ? (
-                                            <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-green-50 text-green-700 text-[10px] font-bold tracking-wider uppercase">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-green-500" /> ONLINE
-                                            </span>
-                                        ) : (
-                                            <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-gray-100 text-gray-500 text-[10px] font-bold tracking-wider uppercase">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-gray-400" /> OFFLINE
-                                            </span>
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-4 text-sm text-gray-500">
-                                        {member.lastLoginAt ? formatDistanceToNow(new Date(member.lastLoginAt), { addSuffix: true }) : "Never"}
-                                    </td>
-                                    <td className="px-6 py-4 text-right opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <div className="flex items-center justify-end gap-3 text-gray-400">
-                                            <button
-                                                onClick={() => updateRoleMutation.mutate({ userId: member._id, role: member.role, status: member.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE' })}
-                                                title={member.status === 'ACTIVE' ? "Suspend User" : "Activate User"}
-                                                className={`transition-colors ${member.status === 'ACTIVE' ? 'hover:text-amber-600' : 'hover:text-green-600'}`}
-                                            >
-                                                {member.status === 'ACTIVE' ? (
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
-                                                ) : (
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                                )}
-                                            </button>
-                                            {member._id !== user?._id && member.role !== 'OWNER' && (
-                                                <button onClick={() => removeUserMutation.mutate(member._id)} title="Force Logout" className="hover:text-red-600 transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {['OWNER', 'ADMIN'].includes(user?.role || '') && member._id !== user?._id && member.role !== 'OWNER' ? (
+                                                <select
+                                                    value={member.role}
+                                                    onChange={(e) => updateRoleMutation.mutate({ userId: member._id, role: e.target.value })}
+                                                    className="border-none bg-transparent cursor-pointer text-sm font-medium text-gray-700 outline-none focus:ring-0"
+                                                >
+                                                    <option value="ADMIN">Super Admin</option>
+                                                    <option value="MANAGER">Manager</option>
+                                                    <option value="USER">User</option>
+                                                    <option value="VIEWER">Viewer</option>
+                                                </select>
+                                            ) : (
+                                                <span className="text-sm font-medium text-gray-700">{member.role}</span>
                                             )}
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {member.status === 'ACTIVE' ? (
+                                                <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-green-50 text-green-700 text-[10px] font-bold tracking-wider uppercase">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-green-500" /> ONLINE
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-gray-100 text-gray-500 text-[10px] font-bold tracking-wider uppercase">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-gray-400" /> OFFLINE
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-gray-500">
+                                            {member.lastLoginAt ? formatDistanceToNow(new Date(member.lastLoginAt), { addSuffix: true }) : "Never"}
+                                        </td>
+                                        <td className="px-6 py-4 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <div className="flex items-center justify-end gap-3 text-gray-400">
+                                                <button
+                                                    onClick={() => updateRoleMutation.mutate({ userId: member._id, role: member.role, status: member.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE' })}
+                                                    title={member.status === 'ACTIVE' ? "Suspend User" : "Activate User"}
+                                                    className={`transition-colors ${member.status === 'ACTIVE' ? 'hover:text-amber-600' : 'hover:text-green-600'}`}
+                                                >
+                                                    {member.status === 'ACTIVE' ? (
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                                                    ) : (
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                                    )}
+                                                </button>
+                                                {member._id !== user?._id && member.role !== 'OWNER' && (
+                                                    <button onClick={() => removeUserMutation.mutate(member._id)} title="Force Logout" className="hover:text-red-600 transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
                 <div className="flex justify-between items-center p-4 border-t border-gray-100 bg-gray-50/50">
                     <button disabled={page === 1} onClick={() => setPage(page - 1)} className="text-sm font-medium text-gray-500 hover:text-gray-900 disabled:opacity-50">‹ Previous</button>
                     <div className="flex gap-1.5">

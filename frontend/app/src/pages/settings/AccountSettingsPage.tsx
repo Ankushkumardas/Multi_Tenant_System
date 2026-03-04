@@ -152,7 +152,7 @@ const AccountSettingsPage = () => {
                     <h1 className="text-xl font-semibold text-gray-900">Account Settings</h1>
                     <p className="text-[13px] text-gray-500 mt-0.5">Manage your personal profile and account security</p>
                 </div>
-                <div className="flex bg-gray-50 p-1 rounded-lg border border-gray-200">
+                <div className="flex flex-wrap bg-gray-50 p-1 rounded-lg border border-gray-200">
                     <button
                         onClick={() => setActiveTab("security")}
                         className={`px-4 py-1.5 text-[12px] font-medium transition-all rounded-md ${activeTab === "security" ? "bg-white text-gray-900 shadow-sm border border-gray-200" : "text-gray-500 hover:text-gray-700"

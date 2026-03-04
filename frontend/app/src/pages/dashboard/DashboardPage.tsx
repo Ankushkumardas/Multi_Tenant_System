@@ -280,53 +280,55 @@ const DashboardPage = () => {
               <h3 className="text-[14px] font-bold text-gray-900">Projects</h3>
               <Link to={`/${slug}/projects`} className="text-[11px] font-bold text-blue-600 hover:underline uppercase tracking-wider">All Projects</Link>
             </div>
-            <table className="w-full text-left">
-              <thead>
-                <tr className="bg-gray-50/50">
-                  <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Name</th>
-                  <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Status</th>
-                  <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Priority</th>
-                  <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Created</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {loading ? (
-                  Array(4).fill(0).map((_, i) => (
-                    <tr key={i}><td colSpan={4} className="px-5 py-4"><div className="h-4 bg-gray-50 animate-pulse rounded" /></td></tr>
-                  ))
-                ) : projects.length === 0 ? (
-                  <tr><td colSpan={4} className="px-5 py-10 text-center text-[12px] text-gray-400">No projects yet.</td></tr>
-                ) : (
-                  projects.slice(0, 6).map((p, i) => (
-                    <tr key={p._id} className="hover:bg-gray-50/50 transition-colors cursor-pointer" onClick={() => navigate(`/${slug}/projects/${p._id}`)}>
-                      <td className="px-5 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-lg ${colors[i % colors.length]} flex items-center justify-center text-white text-[11px] font-bold`}>
-                            {p.name?.[0]?.toUpperCase()}
+            <div className="overflow-x-auto block">
+              <table className="w-full text-left min-w-[600px]">
+                <thead>
+                  <tr className="bg-gray-50/50">
+                    <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Name</th>
+                    <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Status</th>
+                    <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Priority</th>
+                    <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Created</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {loading ? (
+                    Array(4).fill(0).map((_, i) => (
+                      <tr key={i}><td colSpan={4} className="px-5 py-4"><div className="h-4 bg-gray-50 animate-pulse rounded" /></td></tr>
+                    ))
+                  ) : projects.length === 0 ? (
+                    <tr><td colSpan={4} className="px-5 py-10 text-center text-[12px] text-gray-400">No projects yet.</td></tr>
+                  ) : (
+                    projects.slice(0, 6).map((p, i) => (
+                      <tr key={p._id} className="hover:bg-gray-50/50 transition-colors cursor-pointer" onClick={() => navigate(`/${slug}/projects/${p._id}`)}>
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-lg ${colors[i % colors.length]} flex items-center justify-center text-white text-[11px] font-bold`}>
+                              {p.name?.[0]?.toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="text-[13px] font-semibold text-gray-900">{p.name}</p>
+                              <p className="text-[10px] text-gray-400">PRJ-{p._id?.slice(-5).toUpperCase()}</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-[13px] font-semibold text-gray-900">{p.name}</p>
-                            <p className="text-[10px] text-gray-400">PRJ-{p._id?.slice(-5).toUpperCase()}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-5 py-3">
-                        <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${p.status === 'COMPLETED' ? 'bg-blue-50 text-blue-600' : p.status === 'ON_HOLD' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${p.status === 'COMPLETED' ? 'bg-blue-500' : p.status === 'ON_HOLD' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-                          {p.status?.replace(/_/g, " ") || "Active"}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3">
-                        <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${p.priority === 'HIGH' || p.priority === 'URGENT' ? 'bg-rose-50 text-rose-500' : p.priority === 'MEDIUM' ? 'bg-amber-50 text-amber-600' : 'bg-gray-50 text-gray-500'}`}>
-                          {p.priority || "Normal"}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3 text-[11px] text-gray-400">{fmt(p.createdAt)}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                        </td>
+                        <td className="px-5 py-3">
+                          <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${p.status === 'COMPLETED' ? 'bg-blue-50 text-blue-600' : p.status === 'ON_HOLD' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${p.status === 'COMPLETED' ? 'bg-blue-500' : p.status === 'ON_HOLD' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                            {p.status?.replace(/_/g, " ") || "Active"}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3">
+                          <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${p.priority === 'HIGH' || p.priority === 'URGENT' ? 'bg-rose-50 text-rose-500' : p.priority === 'MEDIUM' ? 'bg-amber-50 text-amber-600' : 'bg-gray-50 text-gray-500'}`}>
+                            {p.priority || "Normal"}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3 text-[11px] text-gray-400">{fmt(p.createdAt)}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {/* ── Team Members ── */}
@@ -365,7 +367,7 @@ const DashboardPage = () => {
         </div>
 
       </div>
-    </DashboardLayout>
+    </DashboardLayout >
   );
 };
 

@@ -73,8 +73,8 @@ const ProjectPage = () => {
                         )}
 
                         {/* Tab nav linking */}
-                        <div className="flex items-center justify-between border-t border-gray-50 -mx-6 px-6 mt-4">
-                            <div className="flex -mb-px">
+                        <div className="flex items-center justify-between border-t border-gray-50 -mx-6 px-6 mt-4 overflow-x-auto scrollbar-hide">
+                            <div className="flex -mb-px min-w-max">
                                 {tabs.map(tab => (
                                     <Link
                                         key={tab.id}

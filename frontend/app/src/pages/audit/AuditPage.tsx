@@ -263,56 +263,58 @@ const AuditPage = () => {
 
             {/* ── Logs table ── */}
             <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-                <table className="w-full text-left">
-                    <thead>
-                        <tr className="bg-gray-50/50 border-b border-gray-100">
-                            <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Action</th>
-                            <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">User</th>
-                            <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">IP Address</th>
-                            <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">User Agent</th>
-                            <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Time</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                        {isLoading ? (
-                            Array(PAGE_SIZE).fill(0).map((_, i) => (
-                                <tr key={i}><td colSpan={5} className="px-5 py-4"><div className="h-5 bg-gray-50 animate-pulse rounded" /></td></tr>
-                            ))
-                        ) : filteredLogs.length === 0 ? (
-                            <tr><td colSpan={5} className="px-5 py-16 text-center text-[12px] text-gray-400">No audit logs found.</td></tr>
-                        ) : (
-                            filteredLogs.slice(0, PAGE_SIZE).map((log: any, i: number) => (
-                                <tr key={i} className="hover:bg-gray-50/50 transition-colors">
-                                    <td className="px-5 py-3">
-                                        <span
-                                            className="inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded text-white"
-                                            style={{ backgroundColor: ACTION_COLORS[log.action] ?? "#6b7280" }}
-                                        >
-                                            {log.action || "Unknown"}
-                                        </span>
-                                    </td>
-                                    <td className="px-5 py-3">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-white text-[9px] font-bold">
-                                                {log.actorUserId?.name?.[0]?.toUpperCase() || "S"}
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left min-w-[700px]">
+                        <thead>
+                            <tr className="bg-gray-50/50 border-b border-gray-100">
+                                <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Action</th>
+                                <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">User</th>
+                                <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">IP Address</th>
+                                <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">User Agent</th>
+                                <th className="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Time</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                            {isLoading ? (
+                                Array(PAGE_SIZE).fill(0).map((_, i) => (
+                                    <tr key={i}><td colSpan={5} className="px-5 py-4"><div className="h-5 bg-gray-50 animate-pulse rounded" /></td></tr>
+                                ))
+                            ) : filteredLogs.length === 0 ? (
+                                <tr><td colSpan={5} className="px-5 py-16 text-center text-[12px] text-gray-400">No audit logs found.</td></tr>
+                            ) : (
+                                filteredLogs.slice(0, PAGE_SIZE).map((log: any, i: number) => (
+                                    <tr key={i} className="hover:bg-gray-50/50 transition-colors">
+                                        <td className="px-5 py-3">
+                                            <span
+                                                className="inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded text-white"
+                                                style={{ backgroundColor: ACTION_COLORS[log.action] ?? "#6b7280" }}
+                                            >
+                                                {log.action || "Unknown"}
+                                            </span>
+                                        </td>
+                                        <td className="px-5 py-3">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-white text-[9px] font-bold">
+                                                    {log.actorUserId?.name?.[0]?.toUpperCase() || "S"}
+                                                </div>
+                                                <div>
+                                                    <p className="text-[12px] font-semibold text-gray-900">{log.actorUserId?.name || "System"}</p>
+                                                    <p className="text-[10px] text-gray-400">{log.actorUserId?.email || ""}</p>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <p className="text-[12px] font-semibold text-gray-900">{log.actorUserId?.name || "System"}</p>
-                                                <p className="text-[10px] text-gray-400">{log.actorUserId?.email || ""}</p>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-5 py-3"><span className="text-[11px] font-mono text-gray-500">{log.ipAddress || "—"}</span></td>
-                                    <td className="px-5 py-3"><span className="text-[10px] text-gray-400 truncate max-w-[200px] block" title={log.userAgent}>{log.userAgent || "—"}</span></td>
-                                    <td className="px-5 py-3">
-                                        <p className="text-[11px] text-gray-600">{rel(log.createdAt)}</p>
-                                        <p className="text-[9px] text-gray-400">{fmtDate(log.createdAt)}</p>
-                                    </td>
-                                </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
+                                        </td>
+                                        <td className="px-5 py-3"><span className="text-[11px] font-mono text-gray-500">{log.ipAddress || "—"}</span></td>
+                                        <td className="px-5 py-3"><span className="text-[10px] text-gray-400 truncate max-w-[200px] block" title={log.userAgent}>{log.userAgent || "—"}</span></td>
+                                        <td className="px-5 py-3">
+                                            <p className="text-[11px] text-gray-600">{rel(log.createdAt)}</p>
+                                            <p className="text-[9px] text-gray-400">{fmtDate(log.createdAt)}</p>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     );

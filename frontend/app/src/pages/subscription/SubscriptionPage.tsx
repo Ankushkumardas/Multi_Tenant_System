@@ -225,7 +225,7 @@ const SubscriptionPage = () => {
                         {/* Usage + billing cycle */}
                         <div className="lg:col-span-3 space-y-4">
                             {/* Usage meters */}
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 {/* Projects */}
                                 <div className="bg-white border border-gray-100 rounded-2xl p-4">
                                     <div className="flex justify-between items-center mb-3">

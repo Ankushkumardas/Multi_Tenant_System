@@ -111,7 +111,7 @@ const plans = [
 ];
 
 const ProductMockup = () => (
-  <div className="relative w-full max-w-[520px] mx-auto select-none">
+  <div className="relative w-full max-w-[520px] mx-auto select-none hidden md:block">
     {/* Browser chrome */}
     <div className="bg-white border border-gray-200 rounded-2xl shadow-2xl overflow-hidden">
       {/* Title bar */}
