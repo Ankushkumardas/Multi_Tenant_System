@@ -45,7 +45,7 @@ const ChatPage = () => {
     useEffect(() => {
         fetchRooms();
         const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
-        const SOCKET_URL = new URL(API_URL).origin;
+        const SOCKET_URL = API_URL.startsWith("http") ? new URL(API_URL).origin : window.location.origin;
         const socket = io(SOCKET_URL, {
             auth: { token: localStorage.getItem("token") }
         });

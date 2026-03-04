@@ -12,11 +12,13 @@ import {
   resetPassword,
   acceptInvite,
 } from "../controller/authController.js";
+import { getPlans } from "../controller/subscriptionController.js";
 import { rateLimiter } from "../middleware/ratelimiter.js";
 
 const router = express.Router();
 
 router.post("/register-owner", registerOwner);
+router.get("/plans", getPlans);
 router.post("/verify-owner-email", verifyOwnerEmail);
 router.post(
   "/resend-verification-email",

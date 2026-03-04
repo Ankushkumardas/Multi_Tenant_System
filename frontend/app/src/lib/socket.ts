@@ -3,7 +3,9 @@
 import { io } from 'socket.io-client';
 
 export const createSocket = (token: string) => {
-    return io(import.meta.env.VITE_API_URL, {
+    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
+    const SOCKET_URL = API_URL.startsWith("http") ? new URL(API_URL).origin : window.location.origin;
+    return io(SOCKET_URL, {
         auth: { token }
     });
 }

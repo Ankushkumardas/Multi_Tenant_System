@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
-import { useState, useEffect } from "react";
-
-
+import { useState, useEffect, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "../../lib/axios";
 const features = [
   {
     icon: (
@@ -66,9 +66,48 @@ const steps = [
 ];
 
 const plans = [
-  { name: "Free", price: "$0", desc: "Perfect for small teams just getting started.", highlight: false, cta: "Get started" },
-  { name: "Pro", price: "$12", desc: "Everything teams need to move fast and stay in sync.", highlight: true, cta: "Start free trial" },
-  { name: "Enterprise", price: "Custom", desc: "Advanced security, SLAs, and dedicated support.", highlight: false, cta: "Talk to sales" },
+  {
+    name: "Free",
+    price: "$0",
+    desc: "Perfect for small teams just getting started.",
+    highlight: false,
+    cta: "Get started",
+    features: [
+      "Up to 5 users",
+      "2 active projects",
+      "Basic Kanban boards",
+      "Standard notifications",
+      "Community support"
+    ]
+  },
+  {
+    name: "Pro",
+    price: "$12",
+    desc: "Everything teams need to move fast and stay in sync.",
+    highlight: true,
+    cta: "Start free trial",
+    features: [
+      "Up to 50 users",
+      "Unlimited projects",
+      "Real-time team chat",
+      "Advanced task analytics",
+      "Priority email support"
+    ]
+  },
+  {
+    name: "Enterprise",
+    price: "Custom",
+    desc: "Advanced security, SLAs, and dedicated support.",
+    highlight: false,
+    cta: "Talk to sales",
+    features: [
+      "Unlimited users & projects",
+      "Custom role permissions",
+      "SSO & Advanced Security",
+      "Dedicated success manager",
+      "99.9% Uptime SLA"
+    ]
+  },
 ];
 
 const ProductMockup = () => (
@@ -154,6 +193,52 @@ const Home = () => {
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  const { data: dbPlans } = useQuery({
+    queryKey: ["public-plans"],
+    queryFn: async () => {
+      const res = await api.get('/auth/plans');
+      return res.data;
+    }
+  });
+
+  const computedPlans = useMemo(() => {
+    if (!dbPlans || !Array.isArray(dbPlans) || dbPlans.length === 0) return plans;
+
+    // Sort plans by order: FREE, PRO, ENTERPRISE
+    const order: Record<string, number> = { FREE: 0, PRO: 1, ENTERPRISE: 2 };
+    const sorted = [...dbPlans].sort((a, b) => (order[a.name] ?? 99) - (order[b.name] ?? 99));
+
+    return sorted.map((plan: any) => {
+      const isPro = plan.name === "PRO";
+      const isEnt = plan.name === "ENTERPRISE";
+
+      const featuresList = [];
+      if (plan.limits) {
+        featuresList.push(plan.limits.maxUsers ? `Up to ${plan.limits.maxUsers} users` : "Unlimited users");
+        featuresList.push(plan.limits.maxProjects ? `${plan.limits.maxProjects} active projects` : "Unlimited projects");
+      }
+      if (plan.features?.kanban) featuresList.push("Kanban boards");
+      if (plan.features?.notifications) featuresList.push("Smart notifications");
+      if (plan.features?.chat) featuresList.push("Real-time team chat");
+      if (plan.features?.analytics) featuresList.push("Advanced task analytics");
+      if (isEnt) {
+        featuresList.push("Custom role permissions");
+        featuresList.push("SSO & Advanced Security");
+      }
+
+      return {
+        name: plan.name === "FREE" ? "Free" : plan.name === "PRO" ? "Pro" : "Enterprise",
+        price: `$${plan.price}`,
+        desc: isEnt ? "Advanced security, SLAs, and dedicated support."
+          : isPro ? "Everything teams need to move fast and stay in sync."
+            : "Perfect for small teams just getting started.",
+        highlight: isPro,
+        cta: isEnt ? "Talk to sales" : isPro ? "Start free trial" : "Get started",
+        features: featuresList.length > 0 ? featuresList : ["Standard Features"]
+      };
+    });
+  }, [dbPlans]);
 
   return (
     <div className="min-h-screen bg-white text-gray-900 font-[Inter,sans-serif] antialiased">
@@ -322,12 +407,12 @@ const Home = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {plans.map((p) => (
+            {computedPlans.map((p) => (
               <div
                 key={p.name}
                 className={`rounded-xl border p-6 flex flex-col gap-4 transition-all duration-200 ${p.highlight
-                    ? "bg-gray-900 border-gray-900 text-white shadow-xl scale-[1.03]"
-                    : "bg-white border-gray-100 text-gray-900 hover:shadow-md"
+                  ? "bg-gray-900 border-gray-900 text-white shadow-xl scale-[1.03]"
+                  : "bg-white border-gray-100 text-gray-900 hover:shadow-md"
                   }`}
               >
                 <div>
@@ -338,15 +423,24 @@ const Home = () => {
                     <span className="text-3xl font-bold">{p.price}</span>
                     {p.price !== "Custom" && <span className={`text-[12px] mb-1 ${p.highlight ? "text-gray-400" : "text-gray-400"}`}>/mo per user</span>}
                   </div>
-                  <p className={`text-[13px] mt-2 leading-relaxed ${p.highlight ? "text-gray-300" : "text-gray-400"}`}>
+                  <p className={`text-[13px] mt-2 mb-6 leading-relaxed ${p.highlight ? "text-gray-300" : "text-gray-500"}`}>
                     {p.desc}
                   </p>
+
+                  <ul className="space-y-3 mb-8">
+                    {p.features?.map((feat, idx) => (
+                      <li key={idx} className="flex items-start gap-2.5 text-[13px]">
+                        <svg className={`w-4 h-4 shrink-0 mt-0.5 ${p.highlight ? "text-green-400" : "text-green-500"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                        <span className={p.highlight ? "text-gray-200" : "text-gray-600 font-medium"}>{feat}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
                 <Link
                   to="/signup"
                   className={`mt-auto text-[13px] font-semibold px-4 py-2.5 rounded-lg text-center transition-all duration-200 ${p.highlight
-                      ? "bg-white text-gray-900 hover:bg-gray-100"
-                      : "bg-gray-900 text-white hover:bg-gray-700"
+                    ? "bg-white text-gray-900 hover:bg-gray-100"
+                    : "bg-gray-900 text-white hover:bg-gray-700"
                     }`}
                 >
                   {p.cta}

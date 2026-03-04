@@ -1,0 +1,9 @@
+{
+  "name": "flowspace-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "npm install --prefix backend && npm install --prefix frontend/app && npm run build --prefix frontend/app",
+    "start": "npm start --prefix backend"
+  }
+}

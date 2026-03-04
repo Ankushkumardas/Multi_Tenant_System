@@ -1,4 +1,4 @@
-import React, { type InputHTMLAttributes, type TextareaHTMLAttributes, type ReactNode } from "react";
+import { type InputHTMLAttributes, type TextareaHTMLAttributes, type ReactNode } from "react";
 
 export const Skeleton = ({ className = "" }: { className?: string }) => (
     <div className={`bg-linear-to-r from-gray-50 via-gray-100 to-gray-50 bg-size-[200%_100%] animate-shimmer rounded-3xl ${className}`} />
