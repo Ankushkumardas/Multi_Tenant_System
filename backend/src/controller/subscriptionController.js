@@ -77,7 +77,7 @@ export const getSubscriptionHistory = async (req, res) => {
     const { tenantId } = req.user;
     const subscription = await TenantSubscription.findOne({
       tenantId,
-    }).populate("history.planId");
+    }).populate("history.planId").populate("planId");
     if (!subscription) {
       return res.status(404).json({ message: "No subscription history found" });
     }
@@ -300,7 +300,8 @@ export const getPlans = async (req, res) => {
     const plans = await Plan.find();
     res.status(200).json(plans);
   } catch (error) {
-    res.status(500).json({ message: "Error fetching plans", error });
+    console.error("Error fetching plans:", error.message, error.stack);
+    res.status(500).json({ message: "Error fetching plans", error: error.message });
   }
 };
 

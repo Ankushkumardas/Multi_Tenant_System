@@ -72,26 +72,15 @@ const SubscriptionPage = () => {
         });
     };
 
-    if (subLoading || plansLoading || statsLoading || membersLoading) return <div>Loading...</div>;
-    if (subError || plansError) {
-        return (
-            <div className="w-full p-8">
-                <p className="text-sm text-red-500">
-                    {(subError as any)?.message || (plansError as any)?.message || "Failed to load subscription data."}
-                </p>
-            </div>
-        );
-    }
-
-    const subscription = subData?.subscription ?? subData;
+    // Ensure hooks are called unconditionally by providing default values
+    const subscription = subData?.subscription ?? subData ?? {};
     const history = subscription?.history ?? [];
-
-    const planObj = subscription?.planId ?? subscription?.plan;
-    const plan = planObj?.name ?? "Free Tier";
+    const planObj = subscription?.planId ?? subscription?.plan ?? {};
+    console.log(subscription)
+    const plan = planObj?.name || "Free Tier"; // Default to "Enterprise" if plan name is missing
     const status = subscription?.status ?? "ACTIVE";
     const billingCycle =
         (subscription?.billingCycle as "MONTHLY" | "YEARLY" | "QUARTERLY" | "HALF_YEARLY") ?? "MONTHLY";
-
     const projectLimit = planObj?.limits?.maxProjects ?? 0;
     const memberLimit = planObj?.limits?.maxUsers ?? 0;
     const totalProjects: number = statsData?.stats?.totalProjects ?? 0;
@@ -108,6 +97,34 @@ const SubscriptionPage = () => {
         () => history.slice((currentPage - 1) * pageSize, currentPage * pageSize),
         [history, currentPage],
     );
+
+    // Format subscription data for display
+    // const formattedSubscription = {
+    //     planName: planObj?.name || "N/A",
+    //     price: planObj?.price || "N/A",
+    //     billingCycle: subscription?.billingCycle || "N/A",
+    //     startDate: subscription?.startDate ? formatDate(subscription.startDate) : "N/A",
+    //     endDate: subscription?.endDate ? formatDate(subscription.endDate) : "N/A",
+    //     autoRenew: subscription?.autoRenew ? "Enabled" : "Disabled",
+    //     status: subscription?.status || "N/A",
+    //     features: planObj?.features || {},
+    //     limits: planObj?.limits || {},
+    //     history: subscription?.history || [],
+    // };
+
+    if (subLoading || plansLoading || statsLoading || membersLoading) {
+        return (<div>Loading...</div>);
+    }
+
+    if (subError || plansError) {
+        return (
+            <div className="w-full p-8">
+                <p className="text-sm text-red-500">
+                    {(subError as any)?.message || (plansError as any)?.message || "Failed to load subscription data."}
+                </p>
+            </div>
+        );
+    }
 
     return (
         <div className="w-full space-y-6">
