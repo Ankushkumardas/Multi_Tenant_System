@@ -2,10 +2,10 @@ import { redisClient } from "../utils/redis.js";
 import Notification from "../models/NotificationSchema.js";
 
 export const createNotification = async (
-  req,
+  reqOrIo,
   { tenantId, userId, title, type, message },
 ) => {
-  const io = req.app.get("io");
+  const io = reqOrIo.app ? reqOrIo.app.get("io") : reqOrIo;
   //save in mibgodb
   const notification = await Notification.create({
     tenantId,

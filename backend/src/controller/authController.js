@@ -437,14 +437,6 @@ export const login = async (req, res) => {
 
     res.cookie("refreshToken", refreshToken, refreshTokenOptions);
 
-    await createNotification(req, {
-      tenantId: user.tenantId,
-      userId: user._id,
-      title: "Login successful",
-      type: "LOGIN",
-      message: "You have successfully logged in",
-    });
-
     const tenant = await Tenant.findById(user.tenantId);
 
     return res

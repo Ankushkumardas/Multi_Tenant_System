@@ -129,16 +129,21 @@ export const createRoom = async (req, res) => {
       projectId,
     });
 
-    const allparticipants = [...participants, req.user.userId];
+    const uniqueParticipantIds = [
+      ...new Set([...participants, req.user.userId.toString()]),
+    ];
     await ChatParticpant.insertMany(
-      allparticipants.map((participants) => ({
+      uniqueParticipantIds.map((pid) => ({
         chatRoomId: room._id,
-        userId: participants,
+        userId: pid,
       })),
     );
     res.status(200).json({ message: "Room created", room });
   } catch (error) {
-    res.status(500).json({ message: "Internal server error" });
+    console.error("Create Room Error:", error);
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: error.message });
   }
 };
 

@@ -191,8 +191,13 @@ const TopBar = ({ onMenuClick }: { onMenuClick: () => void }) => {
 
             <div className="flex items-center gap-4">
                 <NotificationDropdown />
-                <div className="w-8 h-8 rounded-lg bg-gray-900 flex items-center justify-center text-white text-[12px] font-bold">
-                    {user?.name?.[0]?.toUpperCase() ?? "U"}
+                <div className="flex items-center gap-2.5">
+                    <span className="text-[13px] font-medium text-gray-700 hidden sm:block tracking-tight">
+                        {user?.name ?? "User"}
+                    </span>
+                    <div className="w-8 h-8 rounded-lg bg-gray-900 flex items-center justify-center text-white text-[12px] font-bold shadow-sm">
+                        {user?.name?.[0]?.toUpperCase() ?? "U"}
+                    </div>
                 </div>
             </div>
         </header>

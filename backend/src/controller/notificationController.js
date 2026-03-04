@@ -12,7 +12,7 @@ import { redisClient } from "../utils/redis.js";
 
 export const markAsRead = async (req, res) => {
   const { id } = req.params; //will get teh notofication id from url
-  const userId = req.user.id; //will get teh user id from auth middleware
+  const userId = req.user.userId; //will get teh user id from auth middleware
   try {
     const notification = await Notification.findOneAndUpdate(
       { _id: id, userId },
@@ -38,7 +38,7 @@ export const markAsRead = async (req, res) => {
 };
 
 export const getUnreadCount = async (req, res) => {
-  const userId = req.user.id;
+  const userId = req.user.userId;
   try {
     const unreadCount = await redisClient.get(`notification:unread:${userId}`);
     //if counts is not found is redis look in teh mongidb in fallback
@@ -64,7 +64,7 @@ export const getAllNotifications = async (req, res) => {
     const notifications = await Notification.find({ userId }).sort({
       createdAt: -1,
     });
-    res.status(200).json(notifications);
+    res.status(200).json({ notifications });
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: "Internal server error" });

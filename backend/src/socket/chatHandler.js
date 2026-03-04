@@ -19,7 +19,7 @@ export const registerChatHandler = async (io, socket) => {
   socket.on("sendMessage", async (data) => {
     const { chatRoomId, content } = data;
     const mentions = extractMentions(content);
-    const mentionedUsers = await User.find({ username: { $in: mentions } });
+    const mentionedUsers = await User.find({ name: { $in: mentions } });
     const message = await Message.create({
       tenantId: tenantId,
       chatRoomId: chatRoomId,
@@ -33,12 +33,32 @@ export const registerChatHandler = async (io, socket) => {
 
     //notify user taht they are been mebtioned
     mentionedUsers.map((m) => {
-      createNotification({
+      createNotification(io, {
         userId: m._id,
         type: "MENTION",
-        message: `${user.username} mentioned you in ${chatRoomId}`,
+        message: `${user.name} mentioned you in ${chatRoomId}`,
         tenantId: tenantId,
       });
+    });
+
+    //notify all other participants in the room
+    const otherParticipants = await ChatParticpant.find({
+      chatRoomId: chatRoomId,
+      userId: { $ne: userId },
+    });
+
+    otherParticipants.forEach((p) => {
+      const isMentioned = mentionedUsers.some(
+        (m) => m._id.toString() === p.userId.toString(),
+      );
+      if (!isMentioned) {
+        createNotification(io, {
+          userId: p.userId,
+          type: "MESSAGE",
+          message: `New message from ${user.name}`,
+          tenantId: tenantId,
+        });
+      }
     });
   });
 
