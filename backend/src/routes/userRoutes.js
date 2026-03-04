@@ -6,6 +6,7 @@ import {
   updateProfileData,
   getActiveSessions,
   changePasword,
+  updateTenantSlug,
 } from "../controller/authController.js";
 import { rateLimiter } from "../middleware/ratelimiter.js";
 
@@ -41,5 +42,7 @@ router.post(
   }),
   changePasword,
 );
+
+router.put("/workspace", authenticate, checkTenant, updateTenantSlug);
 
 export default router;

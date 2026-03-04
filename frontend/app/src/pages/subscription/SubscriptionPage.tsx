@@ -82,7 +82,7 @@ const SubscriptionPage = () => {
 
     // ── data ───────────────────────────────────────────────────────────────────
     const subscription = subData?.subscription ?? {};
-    const history: any[] = subscription?.history ?? [];
+    const subHistory: any[] = subscription?.history ?? [];
     const planObj = subscription?.planId ?? {};
 
     const planName = planObj?.name ?? "—";
@@ -422,9 +422,9 @@ const SubscriptionPage = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
-                                    {[...history].reverse().map((h: any, i: number) => (
+                                    {[...subHistory].reverse().map((h: any, i: number) => (
                                         <tr key={i} className="hover:bg-gray-50/50 transition-colors">
-                                            <td className="px-4 py-2.5 text-gray-400 text-[10px]">{history.length - i}</td>
+                                            <td className="px-4 py-2.5 text-gray-400 text-[10px]">{subHistory.length - i}</td>
                                             <td className="px-4 py-2.5 font-medium text-gray-900">{h.planId?.name ?? planName}</td>
                                             <td className="px-4 py-2.5">
                                                 <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${actionColor[h.action] ?? "bg-gray-100 text-gray-500"}`}>

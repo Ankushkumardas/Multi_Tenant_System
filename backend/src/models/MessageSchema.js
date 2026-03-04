@@ -37,6 +37,12 @@ const MessageSchema = new mongoose.Schema(
     content: { type: String, required: true },
     isEdited: { type: Boolean, default: false },
     isPinned: { type: Boolean, default: false },
+    isForwarded: { type: Boolean, default: false },
+    forwardedFrom: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
     parentMessageId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Message",

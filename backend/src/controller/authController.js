@@ -628,11 +628,56 @@ export const changePasword = async (req, res) => {
     if (!isPasswordValid) {
       return res.status(400).json({ message: "Invalid password" });
     }
-    user.password = hashpassword(newPassword);
+    user.password = await hashpassword(newPassword);
     await user.save();
-    return res
-      .status(200)
-      .json({ message: "Password changed successfully", user });
+    return res.status(200).json({ message: "Password changed successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const updateTenantSlug = async (req, res) => {
+  try {
+    const { newSlug, newName } = req.body;
+    const { tenantId, userId } = req.user;
+
+    const user = await User.findById(userId);
+    if (user.role !== "OWNER") {
+      return res
+        .status(403)
+        .json({ message: "Only owners can update workspace details" });
+    }
+
+    const tenant = await Tenant.findById(tenantId);
+    if (!tenant) {
+      return res.status(404).json({ message: "Workspace not found" });
+    }
+
+    if (newSlug && newSlug !== tenant.slug) {
+      const existing = await Tenant.findOne({ slug: newSlug });
+      if (existing) {
+        return res
+          .status(400)
+          .json({
+            message: "Choose a different workspace URL, this one is taken",
+          });
+      }
+      tenant.slug = newSlug;
+    }
+
+    if (newName) {
+      tenant.name = newName;
+    }
+
+    await tenant.save();
+
+    // Clear cache to reflect changes
+    await redisClient.del(`user:profile:${userId}`);
+
+    return res.status(200).json({
+      message: "Workspace updated successfully",
+      tenant,
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

@@ -10,6 +10,8 @@ import {
   addParticipant,
   removePartcipant,
   getChatMessages,
+  getOrCreateDM,
+  markAsRead,
 } from "../controller/chatController.js";
 
 import { checkTenant } from "../middleware/tenantMiddleware.js";
@@ -28,5 +30,7 @@ router.delete("/:roomId", DeleteRoom);
 router.post("/:roomId/leave", LeaveRoom);
 router.post("/participant", addParticipant);
 router.delete("/participant", removePartcipant);
+router.post("/direct", getOrCreateDM);
+router.post("/:roomId/read", markAsRead);
 
 export default router;

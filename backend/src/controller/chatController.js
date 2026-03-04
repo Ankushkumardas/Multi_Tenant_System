@@ -8,8 +8,52 @@ export const getUserRooms = async (req, res) => {
     const userId = req.user.userId;
     const memberships = await ChatParticpant.find({ userId: userId });
     const roomIds = memberships.map((m) => m.chatRoomId);
-    const rooms = await ChatRoom.find({ _id: { $in: roomIds } });
-    res.status(200).json({ message: "User rooms", rooms });
+    const rooms = await ChatRoom.find({ _id: { $in: roomIds } }).lean();
+
+    // Add unread count and participant IDs for each room
+    const roomsWithExtra = await Promise.all(
+      rooms.map(async (room) => {
+        const [unreadCount, participants] = await Promise.all([
+          Message.countDocuments({
+            chatRoomId: room._id,
+            readBy: { $ne: userId },
+            deletedFor: { $ne: userId },
+          }),
+          ChatParticpant.find({ chatRoomId: room._id }).select("userId").lean(),
+        ]);
+
+        return {
+          ...room,
+          unreadCount,
+          participantIds: participants.map((p) => p.userId.toString()),
+        };
+      }),
+    );
+
+    res.status(200).json({ message: "User rooms", rooms: roomsWithExtra });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const markAsRead = async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    const userId = req.user.userId;
+
+    await Message.updateMany(
+      { chatRoomId: roomId, readBy: { $ne: userId } },
+      { $addToSet: { readBy: userId } },
+    );
+
+    // Optional: emit a "readReceipt" event to other users in the room
+    const io = req.app.get("io");
+    if (io) {
+      io.to(roomId).emit("messagesRead", { roomId, userId });
+    }
+
+    res.status(200).json({ message: "Messages marked as read" });
   } catch (error) {
     res.status(500).json({ message: "Internal server error" });
   }
@@ -160,6 +204,52 @@ export const getChatMessages = async (req, res) => {
 
     res.status(200).json({ messages });
   } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const getOrCreateDM = async (req, res) => {
+  try {
+    const { targetUserId } = req.body;
+    const currentUserId = req.user.userId;
+
+    // Find if a direct room already exists between these two users
+    const rooms = await ChatRoom.find({
+      type: "DIRECT",
+      tenantId: req.user.tenantId,
+    });
+
+    for (const room of rooms) {
+      const participants = await ChatParticpant.find({ chatRoomId: room._id });
+      const pIds = participants.map((p) => p.userId.toString());
+      if (
+        pIds.length === 2 &&
+        pIds.includes(currentUserId.toString()) &&
+        pIds.includes(targetUserId.toString())
+      ) {
+        return res.status(200).json({ room });
+      }
+    }
+
+    // If not found, create new DM room
+    const targetUser = await (
+      await import("../models/UserSchema.js")
+    ).default.findById(targetUserId);
+    const room = await ChatRoom.create({
+      name: targetUser?.name || "Direct Message",
+      tenantId: req.user.tenantId,
+      type: "DIRECT",
+      createdBy: currentUserId,
+    });
+
+    await ChatParticpant.insertMany([
+      { chatRoomId: room._id, userId: currentUserId },
+      { chatRoomId: room._id, userId: targetUserId },
+    ]);
+
+    res.status(200).json({ room });
+  } catch (error) {
+    console.error(error);
     res.status(500).json({ message: "Internal server error" });
   }
 };

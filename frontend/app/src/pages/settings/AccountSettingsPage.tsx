@@ -11,11 +11,15 @@ const AccountSettingsPage = () => {
     const { user, tenant } = useAuthStore();
 
     // UI State
-    const [activeTab, setActiveTab] = useState<"security" | "general">("security");
+    const [activeTab, setActiveTab] = useState<"security" | "general" | "workspace">("security");
 
     // Profile State
     const [name, setName] = useState(user?.name || "");
     const [email, setEmail] = useState(user?.email || "");
+
+    // Workspace State
+    const [workspaceName, setWorkspaceName] = useState(tenant?.name || "");
+    const [workspaceSlug, setWorkspaceSlug] = useState(tenant?.slug || "");
 
     // Security State
     const [oldPassword, setOldPassword] = useState("");
@@ -27,7 +31,11 @@ const AccountSettingsPage = () => {
             setName(user.name || "");
             setEmail(user.email || "");
         }
-    }, [user]);
+        if (tenant) {
+            setWorkspaceName(tenant.name || "");
+            setWorkspaceSlug(tenant.slug || "");
+        }
+    }, [user, tenant]);
 
     // Queries
     const { data: sessionsData, isLoading: sessionsLoading } = useQuery({
@@ -81,6 +89,24 @@ const AccountSettingsPage = () => {
         }
     });
 
+    const updateWorkspaceMutation = useMutation({
+        mutationFn: async () => {
+            const res = await api.put(`/${slug}/user/workspace`, { newName: workspaceName, newSlug: workspaceSlug });
+            return res.data;
+        },
+        onSuccess: (data) => {
+            alert("Workspace upgraded! Note: You may need to refresh if the URL changed.");
+            if (data.tenant?.slug && data.tenant.slug !== slug) {
+                window.location.href = `/${data.tenant.slug}/settings/account`;
+            } else {
+                queryClient.invalidateQueries({ queryKey: ["profile"] });
+            }
+        },
+        onError: (err: any) => {
+            alert(err.response?.data?.message || "Workspace migration failed");
+        }
+    });
+
     const handleProfileSave = () => {
         const payload: any = {};
         if (name && name !== user?.name) payload.name = name;
@@ -116,6 +142,15 @@ const AccountSettingsPage = () => {
                     >
                         General Info
                     </button>
+                    {user?.role === "OWNER" && (
+                        <button
+                            onClick={() => setActiveTab("workspace")}
+                            className={`px-4 py-1.5 text-[12px] font-medium transition-all rounded-md ${activeTab === "workspace" ? "bg-white text-gray-900 shadow-sm border border-gray-200" : "text-gray-500 hover:text-gray-700"
+                                }`}
+                        >
+                            Workspace Control
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -334,6 +369,55 @@ const AccountSettingsPage = () => {
                                 className="h-10 px-8 bg-blue-600 text-white text-[12px] font-semibold rounded-lg hover:bg-blue-700 transition-all disabled:opacity-50"
                             >
                                 {updateProfileMutation.isPending ? "Syncing..." : "Update Profile"}
+                            </button>
+                        </div>
+                    </motion.div>
+                )}
+
+                {activeTab === "workspace" && user?.role === "OWNER" && (
+                    <motion.div
+                        key="workspace-control"
+                        initial={{ opacity: 0, y: 5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 5 }}
+                        className="max-w-[600px] border border-gray-100 bg-white rounded-xl shadow-sm p-8 space-y-6"
+                    >
+                        <div>
+                            <h2 className="text-[14px] font-semibold text-gray-900">Workspace Identity</h2>
+                            <p className="text-[11px] text-gray-500 mt-1 uppercase tracking-tight">Warning: Changing the identifier will break existing deep links</p>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="space-y-1.5">
+                                <label className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Company Name</label>
+                                <input
+                                    value={workspaceName}
+                                    onChange={(e) => setWorkspaceName(e.target.value)}
+                                    className="w-full h-10 px-3 bg-white border border-gray-200 rounded-lg text-[13px] focus:ring-1 focus:ring-blue-500 outline-none transition-all"
+                                    placeholder="Enter company name"
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Workspace Identifier (Slug)</label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-[13px]">app.space/</span>
+                                    <input
+                                        value={workspaceSlug}
+                                        onChange={(e) => setWorkspaceSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
+                                        className="w-full h-10 pl-[80px] pr-3 bg-white border border-gray-200 rounded-lg text-[13px] focus:ring-1 focus:ring-blue-500 outline-none transition-all font-mono"
+                                        placeholder="unique-id"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="pt-2 flex justify-end gap-3">
+                            <button
+                                onClick={() => updateWorkspaceMutation.mutate()}
+                                disabled={updateWorkspaceMutation.isPending || (workspaceName === tenant?.name && workspaceSlug === tenant?.slug)}
+                                className="h-10 px-8 bg-gray-900 text-white text-[12px] font-semibold rounded-lg hover:bg-black transition-all disabled:opacity-50"
+                            >
+                                {updateWorkspaceMutation.isPending ? "Updating Workspace..." : "Apply Changes"}
                             </button>
                         </div>
                     </motion.div>
