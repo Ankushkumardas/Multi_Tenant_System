@@ -1,4 +1,4 @@
-import ChatParticpant from "../models/ChatUserSchema.js";
+import ChatParticipant from "../models/ChatUserSchema.js";
 import ChatRoom from "../models/ChatRoomSchema.js";
 import Message from "../models/MessageSchema.js";
 
@@ -6,29 +6,42 @@ import Message from "../models/MessageSchema.js";
 export const getUserRooms = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const memberships = await ChatParticpant.find({ userId: userId });
+    const memberships = await ChatParticipant.find({ userId: userId });
     const roomIds = memberships.map((m) => m.chatRoomId);
     const rooms = await ChatRoom.find({ _id: { $in: roomIds } }).lean();
 
-    // Add unread count and participant IDs for each room
-    const roomsWithExtra = await Promise.all(
-      rooms.map(async (room) => {
-        const [unreadCount, participants] = await Promise.all([
-          Message.countDocuments({
-            chatRoomId: room._id,
+    // Fetch unread counts and participants in bulk
+    const [unreadCounts, allParticipants] = await Promise.all([
+      Message.aggregate([
+        {
+          $match: {
+            chatRoomId: { $in: roomIds },
             readBy: { $ne: userId },
             deletedFor: { $ne: userId },
-          }),
-          ChatParticpant.find({ chatRoomId: room._id }).select("userId").lean(),
-        ]);
+          },
+        },
+        { $group: { _id: "$chatRoomId", count: { $sum: 1 } } },
+      ]),
+      ChatParticipant.find({ chatRoomId: { $in: roomIds } }).lean(),
+    ]);
 
-        return {
-          ...room,
-          unreadCount,
-          participantIds: participants.map((p) => p.userId.toString()),
-        };
-      }),
-    );
+    const unreadMap = unreadCounts.reduce((acc, curr) => {
+      acc[curr._id.toString()] = curr.count;
+      return acc;
+    }, {});
+
+    const participantMap = allParticipants.reduce((acc, curr) => {
+      const rid = curr.chatRoomId.toString();
+      if (!acc[rid]) acc[rid] = [];
+      acc[rid].push(curr.userId.toString());
+      return acc;
+    }, {});
+
+    const roomsWithExtra = rooms.map((room) => ({
+      ...room,
+      unreadCount: unreadMap[room._id.toString()] || 0,
+      participantIds: participantMap[room._id.toString()] || [],
+    }));
 
     res.status(200).json({ message: "User rooms", rooms: roomsWithExtra });
   } catch (error) {
@@ -59,18 +72,18 @@ export const markAsRead = async (req, res) => {
   }
 };
 
-//get singke room details
+//get single room details
 export const getRoomDetails = async (req, res) => {
   try {
     const { roomId } = req.params;
-    const rooms = await ChatRoom.find({
+    const room = await ChatRoom.findOne({
       _id: roomId,
       tenantId: req.user.tenantId,
     });
-    const participants = await ChatParticpant({ chatRoomId: roomId }).populate(
-      "userId",
-    );
-    res.status(200).json({ message: "Room details", rooms, participants });
+    const participants = await ChatParticipant.find({
+      chatRoomId: roomId,
+    }).populate("userId", "name email role profileImage");
+    res.status(200).json({ message: "Room details", room, participants });
   } catch (error) {
     res.status(500).json({ message: "Internal server error" });
   }
@@ -97,7 +110,7 @@ export const DeleteRoom = async (req, res) => {
       _id: roomId,
       tenantId: req.user.tenantId,
     });
-    await ChatParticpant.deleteMany({
+    await ChatParticipant.deleteMany({
       chatRoomId: roomId,
     });
     await Message.deleteMany({
@@ -113,15 +126,11 @@ export const DeleteRoom = async (req, res) => {
 export const LeaveRoom = async (req, res) => {
   try {
     const { roomId } = req.params;
-    const room = await ChatRoom.findByIdAndDelete({
-      _id: roomId,
-      tenantId: req.user.tenantId,
-    });
-    const participant = await ChatParticpant.deleteOne({
+    const participant = await ChatParticipant.deleteOne({
       chatRoomId: roomId,
       userId: req.user.userId,
     });
-    res.status(200).json({ message: "User Left Room", room, participant });
+    res.status(200).json({ message: "User Left Room", participant });
   } catch (error) {
     res.status(500).json({ message: "Internal server error" });
   }
@@ -135,7 +144,16 @@ export const addParticipant = async (req, res) => {
     if (!room) {
       return res.status(404).json({ message: "Room not found" });
     }
-    const participant = await ChatParticpant.create({
+
+    const existing = await ChatParticipant.findOne({
+      chatRoomId: roomId,
+      userId,
+    });
+    if (existing) {
+      return res.status(400).json({ message: "User already in room" });
+    }
+
+    const participant = await ChatParticipant.create({
       chatRoomId: roomId,
       userId: userId,
     });
@@ -145,15 +163,15 @@ export const addParticipant = async (req, res) => {
   }
 };
 
-//romeve particpant
-export const removePartcipant = async (req, res) => {
+//remove participant
+export const removeParticipant = async (req, res) => {
   try {
     const { roomId, userId } = req.body;
     const room = await ChatRoom.findById(roomId);
     if (!room) {
       return res.status(404).json({ message: "Room not found" });
     }
-    const participant = await ChatParticpant.deleteOne({
+    const participant = await ChatParticipant.deleteOne({
       chatRoomId: roomId,
       userId: userId,
     });
@@ -176,7 +194,7 @@ export const createRoom = async (req, res) => {
     const uniqueParticipantIds = [
       ...new Set([...participants, req.user.userId.toString()]),
     ];
-    await ChatParticpant.insertMany(
+    await ChatParticipant.insertMany(
       uniqueParticipantIds.map((pid) => ({
         chatRoomId: room._id,
         userId: pid,
@@ -213,21 +231,45 @@ export const getOrCreateDM = async (req, res) => {
     const { targetUserId } = req.body;
     const currentUserId = req.user.userId;
 
-    // Find if a direct room already exists between these two users
-    const rooms = await ChatRoom.find({
-      type: "DIRECT",
-      tenantId: req.user.tenantId,
-    });
+    // Find all DIRECT rooms the current user is in
+    const currentUserDirectMemberships = await ChatParticipant.find({
+      userId: currentUserId,
+    })
+      .populate({
+        path: "chatRoomId",
+        match: { type: "DIRECT", tenantId: req.user.tenantId },
+      })
+      .lean();
 
-    for (const room of rooms) {
-      const participants = await ChatParticpant.find({ chatRoomId: room._id });
-      const pIds = participants.map((p) => p.userId.toString());
-      if (
-        pIds.length === 2 &&
-        pIds.includes(currentUserId.toString()) &&
-        pIds.includes(targetUserId.toString())
-      ) {
-        return res.status(200).json({ room });
+    // Filter out memberships where the room didn't match the DIRECT type
+    const directRoomIds = currentUserDirectMemberships
+      .filter((m) => m.chatRoomId)
+      .map((m) => m.chatRoomId._id);
+
+    // Now find if the target user is in any of these DIRECT rooms
+    const commonMembership = await ChatParticipant.findOne({
+      userId: targetUserId,
+      chatRoomId: { $in: directRoomIds },
+    }).lean();
+
+    if (commonMembership) {
+      // Find the room object again since we only have the ID from membership if lean()
+      const roomToReturn = await ChatRoom.findById(
+        commonMembership.chatRoomId,
+      ).lean();
+
+      if (roomToReturn) {
+        const participants = await ChatParticipant.find({
+          chatRoomId: roomToReturn._id,
+        }).lean();
+        const participantIds = participants.map((p) => p.userId.toString());
+
+        return res.status(200).json({
+          room: {
+            ...roomToReturn,
+            participantIds,
+          },
+        });
       }
     }
 
@@ -242,14 +284,45 @@ export const getOrCreateDM = async (req, res) => {
       createdBy: currentUserId,
     });
 
-    await ChatParticpant.insertMany([
+    await ChatParticipant.insertMany([
       { chatRoomId: room._id, userId: currentUserId },
       { chatRoomId: room._id, userId: targetUserId },
     ]);
 
-    res.status(200).json({ room });
+    res.status(200).json({
+      room: {
+        ...room.toObject(),
+        participantIds: [currentUserId.toString(), targetUserId.toString()],
+      },
+    });
   } catch (error) {
     console.error(error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const markAllRead = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const tenantId = req.user.tenantId;
+
+    // Find all rooms for the user
+    const memberships = await ChatParticipant.find({ userId: userId }).lean();
+    const roomIds = memberships.map((m) => m.chatRoomId);
+
+    await Message.updateMany(
+      {
+        chatRoomId: { $in: roomIds },
+        tenantId: tenantId,
+        readBy: { $ne: userId },
+      },
+      {
+        $addToSet: { readBy: userId },
+      },
+    );
+
+    res.status(200).json({ message: "All messages marked as read" });
+  } catch (error) {
     res.status(500).json({ message: "Internal server error" });
   }
 };

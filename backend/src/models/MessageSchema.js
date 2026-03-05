@@ -63,4 +63,8 @@ const MessageSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
+MessageSchema.index({ chatRoomId: 1, createdAt: 1 });
+MessageSchema.index({ tenantId: 1 });
+MessageSchema.index({ readBy: 1 });
+
 export default mongoose.model("Message", MessageSchema);

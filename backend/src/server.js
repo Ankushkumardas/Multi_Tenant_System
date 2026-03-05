@@ -20,7 +20,7 @@ import chatRoutes from "./routes/chatRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
 import jwt from "jsonwebtoken";
 import User from "./models/UserSchema.js";
-import ChatParticpant from "./models/ChatUserSchema.js";
+import ChatParticipant from "./models/ChatUserSchema.js";
 import activityRoutes from "./routes/activityRoutes.js";
 import auditRoutes from "./routes/auditRoutes.js";
 import { setupSocket } from "./socket/socket.js";

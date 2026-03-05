@@ -5,13 +5,14 @@ import { api } from "../../lib/axios";
 import { formatDistanceToNow } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 import { io } from "socket.io-client";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
+import { useAlertStore } from "../../store/alertStore";
 
 export const NotificationDropdown = () => {
     const { slug } = useParams();
     const qc = useQueryClient();
     const [isOpen, setIsOpen] = useState(false);
-    const socketRef = useRef<any>(null);
+    const { info } = useAlertStore();
 
     useEffect(() => {
         const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
@@ -20,9 +21,13 @@ export const NotificationDropdown = () => {
         const socket = io(SOCKET_URL, {
             auth: { token: localStorage.getItem("token") }
         });
-        socketRef.current = socket;
 
-        socket.on("newnotification", () => {
+        socket.on("newnotification", (data: any) => {
+            // Show real-time toast
+            if (data?.notification) {
+                const { title, message } = data.notification;
+                info(title || "Notification", message || "");
+            }
             // Unread count is updated real-time, invalidate queries to fetch
             qc.invalidateQueries({ queryKey: ["notifications", slug] });
         });
@@ -30,7 +35,7 @@ export const NotificationDropdown = () => {
         return () => {
             socket.disconnect();
         };
-    }, [slug, qc]);
+    }, [slug, qc, info]);
 
     const { data: notificationsData, isLoading } = useQuery({
         queryKey: ["notifications", slug],

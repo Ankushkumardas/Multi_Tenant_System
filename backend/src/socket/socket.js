@@ -1,7 +1,7 @@
 import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 import User from "../models/UserSchema.js";
-import ChatParticpant from "../models/ChatUserSchema.js";
+import ChatParticipant from "../models/ChatUserSchema.js";
 import { registerChatHandler } from "./chatHandler.js";
 import { registerOnlineUsersHandler } from "./onlineUsers.js";
 import { registerTypingHanlder } from "./typingHandler.js";
@@ -50,7 +50,7 @@ export const setupSocket = (server, app) => {
     socket.join(userId);
     console.log("User connected:", userId);
     //and alos join user to all teh romms he is been added to
-    const memberships = await ChatParticpant.find({ userId: userId });
+    const memberships = await ChatParticipant.find({ userId: userId });
     memberships.forEach((membership) => {
       socket.join(membership.chatRoomId.toString());
     });

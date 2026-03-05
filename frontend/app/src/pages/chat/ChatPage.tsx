@@ -8,9 +8,11 @@ import { CreateRoomModal } from "../../components/chat/CreateRoomModal";
 import { useWorkspaceMembers } from "../../hooks/useDashboard";
 import { useAlertStore } from "../../store/alertStore";
 
+import { useParams } from "react-router-dom";
+
 const ChatPage = () => {
-    const { user, tenant } = useAuthStore();
-    const slug = tenant?.slug;
+    const { user } = useAuthStore();
+    const { slug } = useParams();
     const { showConfirm } = useAlertStore();
     const [rooms, setRooms] = useState<any[]>([]);
     const [activeRoom, setActiveRoom] = useState<any>(null);
@@ -24,6 +26,20 @@ const ChatPage = () => {
     const [showMobileSidebar, setShowMobileSidebar] = useState(true);
     const [replyingTo, setReplyingTo] = useState<any>(null);
     const [activeThread, setActiveThread] = useState<any>(null);
+    const [messagesLoading, setMessagesLoading] = useState(false);
+
+    // Refs for socket handlers to access latest state without re-attaching listeners
+    const activeRoomRef = useRef<any>(null);
+    const activeThreadRef = useRef<any>(null);
+
+    useEffect(() => {
+        activeRoomRef.current = activeRoom;
+    }, [activeRoom]);
+
+
+    useEffect(() => {
+        activeThreadRef.current = activeThread;
+    }, [activeThread]);
     const [threadMessages, setThreadMessages] = useState<any[]>([]);
     const [showForwardModal, setShowForwardModal] = useState(false);
     const [forwardMessage, setForwardMessage] = useState<any>(null);
@@ -31,6 +47,11 @@ const ChatPage = () => {
     const typingTimeoutRef = useRef<any>(null);
     const [editingMsg, setEditingMsg] = useState<any>(null);
     const [editContent, setEditContent] = useState("");
+    const [isRoomInfoOpen, setIsRoomInfoOpen] = useState(false);
+    const [roomParticipants, setRoomParticipants] = useState<any[]>([]);
+    const [isRenaming, setIsRenaming] = useState(false);
+    const [renameVal, setRenameVal] = useState("");
+    const [memberSearchQuery, setMemberSearchQuery] = useState("");
 
     // Search
     const [searchQuery, setSearchQuery] = useState("");
@@ -41,6 +62,7 @@ const ChatPage = () => {
     // Mention state
     const { data: teamData, isLoading: membersLoading } = useWorkspaceMembers();
     const members = teamData?.users ?? [];
+    const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
     const [mentionSearch, setMentionSearch] = useState("");
     const [showMentions, setShowMentions] = useState(false);
     const [focusedMentionIdx, setFocusedMentionIdx] = useState(0);
@@ -55,73 +77,117 @@ const ChatPage = () => {
         socketRef.current = socket;
 
         socket.on("newMessage", (msg: any) => {
-            if (activeRoom && msg.chatRoomId === activeRoom._id) {
+            const currentRoom = activeRoomRef.current;
+            const currentThread = activeThreadRef.current;
+
+            if (currentRoom && msg.chatRoomId === currentRoom._id) {
                 if (msg.parentMessageId) {
-                    if (activeThread && msg.parentMessageId === activeThread._id) {
-                        setThreadMessages((prev: any[]) => [...prev, msg]);
+                    if (currentThread && msg.parentMessageId === currentThread._id) {
+                        setThreadMessages((prev: any[]) => {
+                            // Find last optimistic message to replace
+                            let lastOptIdx = -1;
+                            for (let i = prev.length - 1; i >= 0; i--) {
+                                if (prev[i].isOptimistic && prev[i].content === msg.content) {
+                                    lastOptIdx = i;
+                                    break;
+                                }
+                            }
+
+                            if (lastOptIdx !== -1) {
+                                const next = [...prev];
+                                next[lastOptIdx] = msg;
+                                return next;
+                            }
+                            return [...prev, msg];
+                        });
                     }
                 } else {
-                    setMessages((prev: any[]) => [...prev, msg]);
+                    setMessages((prev: any[]) => {
+                        // Find last optimistic message to replace
+                        const senderId = typeof msg.senderId === 'object' ? msg.senderId?._id : msg.senderId;
+                        let lastOptIdx = -1;
+                        if (senderId === user?._id) {
+                            for (let i = prev.length - 1; i >= 0; i--) {
+                                if (prev[i].isOptimistic && prev[i].content === msg.content) {
+                                    lastOptIdx = i;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (lastOptIdx !== -1) {
+                            const next = [...prev];
+                            next[lastOptIdx] = msg;
+                            return next;
+                        }
+                        return [...prev, msg];
+                    });
                     // Mark as read if active
-                    api.post(`/${slug}/chat/${activeRoom._id}/read`).catch(console.error);
+                    api.post(`/${slug}/chat/${currentRoom._id}/read`).catch(console.error);
                 }
             } else {
-                // Update unread count for other rooms
                 setRooms(prev => prev.map(r => r._id === msg.chatRoomId ? { ...r, unreadCount: (r.unreadCount || 0) + 1 } : r));
             }
         });
 
         socket.on("messageUpdated", (updatedMsg: any) => {
-            if (activeRoom && updatedMsg.chatRoomId === activeRoom._id) {
+            const currentRoom = activeRoomRef.current;
+            const currentThread = activeThreadRef.current;
+
+            if (currentRoom && updatedMsg.chatRoomId === currentRoom._id) {
                 setMessages(prev => prev.map(m => m._id === updatedMsg._id ? updatedMsg : m));
             }
-            if (activeThread && updatedMsg._id === activeThread._id) {
+            if (currentThread && updatedMsg._id === currentThread._id) {
                 setActiveThread(updatedMsg);
             }
-            if (activeThread && updatedMsg.parentMessageId === activeThread._id) {
+            if (currentThread && updatedMsg.parentMessageId === currentThread._id) {
                 setThreadMessages(prev => prev.map(m => m._id === updatedMsg._id ? updatedMsg : m));
             }
         });
 
         socket.on("messageDeleted", ({ messageId, chatRoomId }: any) => {
-            if (activeRoom?._id === chatRoomId) {
+            const currentRoom = activeRoomRef.current;
+            const currentThread = activeThreadRef.current;
+
+            if (currentRoom?._id === chatRoomId) {
                 setMessages(prev => prev.filter(m => m._id !== messageId));
             }
-            if (activeThread?._id === messageId) {
+            if (currentThread?._id === messageId) {
                 setActiveThread(null);
             }
-            if (activeThread?._id === chatRoomId) {
+            if (currentThread?._id === chatRoomId) {
                 setThreadMessages(prev => prev.filter(m => m._id !== messageId));
             }
         });
 
         socket.on("typing", ({ chatRoomId, userId }: any) => {
             if (userId === user?._id) return;
-            const userName = members.find((m: any) => m._id === userId)?.name || "Someone";
             setTypingUsers(prev => ({
                 ...prev,
-                [chatRoomId]: [...(prev[chatRoomId] || []).filter(u => u !== userName), userName]
+                [chatRoomId]: [...(prev[chatRoomId] || []).filter(u => u !== userId), userId]
             }));
         });
 
         socket.on("stopTyping", ({ chatRoomId, userId }: any) => {
-            const userName = members.find((m: any) => m._id === userId)?.name || "Someone";
             setTypingUsers(prev => ({
                 ...prev,
-                [chatRoomId]: (prev[chatRoomId] || []).filter(u => u !== userName)
+                [chatRoomId]: (prev[chatRoomId] || []).filter(u => u !== userId)
             }));
         });
 
+        socket.on("onlineUsers", (userIds: string[]) => {
+            setOnlineUserIds(userIds);
+        });
+
         return () => { socket.disconnect(); };
-    }, [activeRoom, activeThread, members]);
+    }, [slug, user?._id]); // Only re-run if slug or user changes
 
     useEffect(() => {
         if (activeRoom) {
+            setRooms(prev => prev.map(r => r._id === activeRoom._id ? { ...r, unreadCount: 0 } : r));
             fetchMessages(activeRoom._id);
-            // Mark as read
-            api.post(`/${slug}/chat/${activeRoom._id}/read`).then(() => {
-                setRooms(prev => prev.map(r => r._id === activeRoom._id ? { ...r, unreadCount: 0 } : r));
-            }).catch(console.error);
+            // Mark as read in backend
+            api.post(`/${slug}/chat/${activeRoom._id}/read`).catch(console.error);
         }
     }, [activeRoom]);
 
@@ -132,26 +198,40 @@ const ChatPage = () => {
     }, [messages]);
 
     const fetchRooms = async () => {
+        if (!slug) return;
         try {
-            const res = await api.get(`/${slug}/chat`);
-            setRooms(res.data.rooms || []);
-            if (res.data.rooms?.length > 0 && !activeRoom) {
-                setActiveRoom(res.data.rooms[0]);
-                fetchMessages(res.data.rooms[0]._id);
+            const res = await api.get(`/${slug}/chat/rooms`);
+            const loadedRooms = res.data.rooms || [];
+            // console.log("Fetched rooms:", loadedRooms);
+            setRooms(loadedRooms);
+            if (loadedRooms.length > 0 && !activeRoom) {
+                setActiveRoom(loadedRooms[0]);
             }
             setLoading(false);
-        } catch (err) {
-            console.error(err);
+        } catch (error) {
+            console.error("Fetch Rooms Error:", error);
             setLoading(false);
         }
     };
 
+    // const handleMarkAllRead = async () => {
+    //     try {
+    //         await api.post(`/${slug}/chat/mark-all-read`);
+    //         setRooms(prev => prev.map(r => ({ ...r, unreadCount: 0 })));
+    //     } catch (err) {
+    //         console.error(err);
+    //     }
+    // };
+
     const fetchMessages = async (roomId: string) => {
+        setMessagesLoading(true);
         try {
             const res = await api.get(`/${slug}/chat/${roomId}/messages`);
             setMessages(res.data.messages || []);
         } catch (err) {
             console.error(err);
+        } finally {
+            setMessagesLoading(false);
         }
     };
 
@@ -172,6 +252,18 @@ const ChatPage = () => {
                 console.error(err);
             }
         } else {
+            // Optimistic update
+            const tempMsg = {
+                _id: Date.now().toString(),
+                chatRoomId: activeRoom._id,
+                content: newMsg,
+                senderId: user,
+                createdAt: new Date().toISOString(),
+                readBy: [user?._id],
+                isOptimistic: true // UI hint
+            };
+            setMessages(prev => [...prev, tempMsg]);
+
             socketRef.current.emit("sendMessage", {
                 chatRoomId: activeRoom._id,
                 content: newMsg
@@ -218,6 +310,104 @@ const ChatPage = () => {
         } catch (err) {
             console.error("DM Error:", err);
         }
+    };
+
+    const fetchRoomDetails = async (roomId: string) => {
+        try {
+            const res = await api.get(`/${slug}/chat/${roomId}`);
+            setRoomParticipants(res.data.participants || []);
+            setRenameVal(res.data.room?.name || "");
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    useEffect(() => {
+        if (isRoomInfoOpen && activeRoom) {
+            fetchRoomDetails(activeRoom._id);
+        }
+    }, [isRoomInfoOpen, activeRoom]);
+
+    const handleUpdateRoom = async () => {
+        if (!renameVal.trim() || !activeRoom) return;
+        try {
+            await api.put(`/${slug}/chat/${activeRoom._id}`, { name: renameVal });
+            setActiveRoom({ ...activeRoom, name: renameVal });
+            setRooms(prev => prev.map(r => r._id === activeRoom._id ? { ...r, name: renameVal } : r));
+            setIsRenaming(false);
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const handleDeleteRoom = async () => {
+        if (!activeRoom) return;
+        showConfirm({
+            title: "Delete Channel",
+            message: "This will permanently delete the channel and all its data. This action cannot be undone.",
+            confirmLabel: "Delete Channel",
+            danger: true,
+            onConfirm: async () => {
+                try {
+                    await api.delete(`/${slug}/chat/${activeRoom._id}`);
+                    setRooms(prev => prev.filter(r => r._id !== activeRoom._id));
+                    setActiveRoom(null);
+                    setIsRoomInfoOpen(false);
+                } catch (err) {
+                    console.error(err);
+                }
+            }
+        });
+    };
+
+    const handleLeaveRoom = async () => {
+        if (!activeRoom) return;
+        showConfirm({
+            title: "Leave Channel",
+            message: "Are you sure you want to leave this channel?",
+            confirmLabel: "Leave Channel",
+            danger: true,
+            onConfirm: async () => {
+                try {
+                    await api.post(`/${slug}/chat/${activeRoom._id}/leave`);
+                    setRooms(prev => prev.filter(r => r._id !== activeRoom._id));
+                    setActiveRoom(null);
+                    setIsRoomInfoOpen(false);
+                } catch (err) {
+                    console.error(err);
+                }
+            }
+        });
+    };
+
+    const handleAddParticipant = async (uid: string) => {
+        if (!activeRoom) return;
+        try {
+            await api.post(`/${slug}/chat/participant`, { roomId: activeRoom._id, userId: uid });
+            // Refresh
+            fetchRoomDetails(activeRoom._id);
+            setMemberSearchQuery("");
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const handleRemoveParticipant = async (uid: string) => {
+        if (!activeRoom) return;
+        showConfirm({
+            title: "Remove Participant",
+            message: "Are you sure you want to remove this user from the channel?",
+            confirmLabel: "Remove",
+            danger: true,
+            onConfirm: async () => {
+                try {
+                    await api.post(`/${slug}/chat/participant/remove`, { roomId: activeRoom._id, userId: uid });
+                    fetchRoomDetails(activeRoom._id);
+                } catch (err) {
+                    console.error(err);
+                }
+            }
+        });
     };
 
     const handleMsgChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -353,30 +543,32 @@ const ChatPage = () => {
 
     return (
         <DashboardLayout title="Secure Comms" noPadding>
-            <div className="w-full h-[calc(100vh-64px)] bg-white flex overflow-hidden">
+            <div className="w-full h-[calc(100vh-56px)] bg-white flex overflow-hidden relative">
 
                 {/* ── Chat Sidebar ── */}
-                <div className={`${showMobileSidebar ? 'flex' : 'hidden'} md:flex w-full md:w-80 border-r border-gray-100 flex-col bg-gray-50/30 absolute md:relative inset-0 z-10 md:z-auto`}>
-                    <div className="p-6 border-b border-gray-50 flex items-center justify-between">
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <h2 className="text-[18px] font-medium text-gray-900 tracking-tight">Channels</h2>
-                                {rooms.reduce((acc, r) => acc + (r.unreadCount || 0), 0) > 0 && (
-                                    <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg shadow-red-100">
-                                        {rooms.reduce((acc, r) => acc + (r.unreadCount || 0), 0)} New
-                                    </span>
-                                )}
-                            </div>
-                            <p className="text-[11px] text-gray-400 mt-1 uppercase tracking-widest">Workspace discussions</p>
+                <div className={`
+                    absolute md:relative inset-0 z-30 md:z-auto
+                    w-full md:w-72 border-r border-gray-100 flex flex-col bg-gray-50
+                    transition-transform duration-300 ease-in-out
+                    ${showMobileSidebar ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+                `}>
+                    <div className="p-4 border-b border-gray-50 flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                            <h2 className="text-[16px] font-bold text-gray-900 tracking-tight">Channels</h2>
+                            {rooms.reduce((acc, r) => acc + (r.unreadCount || 0), 0) > 0 && (
+                                <span className="bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-lg shadow-red-100">
+                                    {rooms.reduce((acc, r) => acc + (r.unreadCount || 0), 0)}
+                                </span>
+                            )}
                         </div>
                         <button
                             onClick={() => setShowCreateModal(true)}
-                            className="w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center hover:bg-gray-800 transition-colors shadow-sm"
+                            className="w-7 h-7 rounded-lg bg-gray-900 text-white flex items-center justify-center hover:bg-gray-800 transition-colors shadow-sm"
                         >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
                         </button>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-4 space-y-6">
+                    <div className="flex-1 overflow-y-auto p-2 space-y-4">
                         {/* Channels Section */}
                         <div className="space-y-1">
                             <h3 className="px-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">
@@ -392,9 +584,9 @@ const ChatPage = () => {
                                     <button
                                         key={room._id}
                                         onClick={() => { setActiveRoom(room); fetchMessages(room._id); setShowMobileSidebar(false); }}
-                                        className={`w-full flex items-center gap-3 p-2 rounded-2xl transition-all ${activeRoom?._id === room._id ? "bg-white shadow-md border border-gray-100" : "hover:bg-gray-100/50 text-gray-500 hover:text-gray-900"}`}
+                                        className={`w-full flex items-center gap-2.5 p-2 rounded-xl transition-all ${activeRoom?._id === room._id ? "bg-white shadow-sm border border-gray-100" : "hover:bg-gray-100/50 text-gray-500 hover:text-gray-900"}`}
                                     >
-                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-[13px] font-medium ${activeRoom?._id === room._id ? "bg-gray-900 text-white" : "bg-gray-200 text-gray-500"}`}>
+                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[11px] font-bold ${activeRoom?._id === room._id ? "bg-gray-900 text-white" : "bg-gray-200 text-gray-500"}`}>
                                             {room.name?.[0]?.toUpperCase() ?? "C"}
                                         </div>
                                         <div className="flex-1 min-w-0 text-left">
@@ -407,12 +599,15 @@ const ChatPage = () => {
                                                 )}
                                             </div>
                                             <div className="flex items-center justify-between">
-                                                <p className="text-[10px] text-gray-400 truncate tracking-tight">
-                                                    {typingUsers[room._id]?.length > 0
-                                                        ? <span className="text-emerald-500 font-medium italic animate-bounce">Typing...</span>
-                                                        : (room.type || "Group")
-                                                    }
-                                                </p>
+                                                <div className="flex items-center gap-1">
+                                                    <div className={`w-1 h-1 rounded-full ${onlineUserIds.includes(room.createdBy) ? "bg-green-400" : "bg-gray-300"}`} />
+                                                    <p className="text-[10px] text-gray-400 truncate tracking-tight">
+                                                        {typingUsers[room._id]?.length > 0
+                                                            ? <span className="text-emerald-500 font-medium italic animate-bounce">Typing...</span>
+                                                            : (room.type || "Group")
+                                                        }
+                                                    </p>
+                                                </div>
                                             </div>
                                         </div>
                                     </button>
@@ -439,35 +634,35 @@ const ChatPage = () => {
                                 <p className="text-[11px] text-gray-400 px-2 italic">No users found</p>
                             ) : (
                                 members.filter((m: any) => m._id !== user?._id).map((member: any) => {
-                                    const isActive = activeRoom && activeRoom.type === "DIRECT" && (activeRoom.name === member.name || activeRoom.name.includes(member.name));
+                                    const dmRoom = rooms.find(r =>
+                                        r.type === "DIRECT" &&
+                                        r.participantIds?.includes(member._id) &&
+                                        r.participantIds?.includes(user?._id)
+                                    );
+                                    const isActive = activeRoom && activeRoom.type === "DIRECT" && activeRoom.participantIds?.includes(member._id);
 
                                     return (
                                         <button
                                             key={member._id}
                                             onClick={() => { handleOpenDM(member._id); setShowMobileSidebar(false); }}
-                                            className={`w-full flex items-center gap-3 p-2 rounded-2xl transition-all ${isActive ? "bg-white shadow-md border border-gray-100" : "hover:bg-gray-100/50 text-gray-500 hover:text-gray-900"}`}
+                                            className={`w-full flex items-center gap-2.5 p-2 rounded-xl transition-all ${isActive ? "bg-white shadow-sm border border-gray-100" : "hover:bg-gray-100/50 text-gray-500 hover:text-gray-900"}`}
                                         >
                                             <div className="relative">
-                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-[13px] font-medium ${isActive ? "bg-blue-600 text-white shadow-lg shadow-blue-200" : "bg-gray-200 text-gray-500"}`}>
+                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[11px] font-bold ${isActive ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-500"}`}>
                                                     {member.name?.[0]?.toUpperCase() ?? "U"}
                                                 </div>
-                                                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 border-2 border-white rounded-full shadow-sm" />
+                                                {onlineUserIds.includes(member._id) && (
+                                                    <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 border-2 border-white rounded-full shadow-sm" />
+                                                )}
                                             </div>
                                             <div className="flex-1 min-w-0 text-left">
                                                 <div className="flex items-center justify-between gap-2">
                                                     <p className="text-[13px] font-medium truncate">{member.name}</p>
-                                                    {(() => {
-                                                        const dmRoomForUser = rooms.find(r =>
-                                                            r.type === "DIRECT" &&
-                                                            r.participantIds?.includes(member._id) &&
-                                                            r.participantIds?.includes(user?._id)
-                                                        );
-                                                        return dmRoomForUser?.unreadCount > 0 && (
-                                                            <span className="bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] h-[18px] flex items-center justify-center animate-pulse">
-                                                                {dmRoomForUser.unreadCount}
-                                                            </span>
-                                                        );
-                                                    })()}
+                                                    {dmRoom?.unreadCount > 0 && (
+                                                        <span className="bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] h-[18px] flex items-center justify-center animate-pulse">
+                                                            {dmRoom.unreadCount}
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <div className="flex items-center gap-1">
                                                     <span className="text-[10px] text-gray-400 truncate tracking-tight">{member.role || "Member"}</span>
@@ -482,12 +677,12 @@ const ChatPage = () => {
                 </div>
 
                 {/* ── Main Chat Area ── */}
-                <div className={`${showMobileSidebar ? 'hidden' : 'flex'} md:flex flex-1 flex-col relative bg-white w-full`}>
+                <div className="flex-1 flex flex-col relative bg-white w-full min-w-0">
                     {activeRoom ? (
                         <>
                             {/* Chat Header */}
-                            <div className="h-20 border-b border-gray-50 flex items-center justify-between px-4 md:px-8 bg-white/80 backdrop-blur-md sticky top-0 z-10">
-                                <div className="flex items-center gap-3">
+                            <div className="h-16 border-b border-gray-50 flex items-center justify-between px-4 md:px-6 bg-white sticky top-0 z-10">
+                                <div className="flex items-center gap-2.5">
                                     {/* Back button - mobile only */}
                                     <button
                                         onClick={() => setShowMobileSidebar(true)}
@@ -496,28 +691,37 @@ const ChatPage = () => {
                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
                                     </button>
                                     <div>
-                                        <h3 className="text-[15px] font-medium text-gray-900 tracking-tight">{activeRoom.name}</h3>
+                                        <h3 className="text-[15px] font-medium text-gray-900 tracking-tight">
+                                            {activeRoom.type === "DIRECT"
+                                                ? (members.find((m: any) => activeRoom.participantIds?.includes(m._id) && m._id !== user?._id)?.name || activeRoom.name || "Direct Message")
+                                                : activeRoom.name
+                                            }
+                                        </h3>
                                         <div className="flex items-center gap-1.5 mt-0.5">
                                             <div className={`w-1.5 h-1.5 rounded-full ${typingUsers[activeRoom._id]?.length > 0 ? "bg-emerald-400 animate-pulse" : "bg-green-400"}`} />
                                             <span className="text-[10px] text-gray-400 uppercase tracking-widest font-medium">
                                                 {typingUsers[activeRoom._id]?.length > 0
-                                                    ? `${typingUsers[activeRoom._id].join(", ")} is typing...`
+                                                    ? `${typingUsers[activeRoom._id].map(uid => members.find((m: any) => m._id === uid)?.name || "Remote User").join(", ")} typing...`
                                                     : "Channel Active"
                                                 }
                                             </span>
                                         </div>
                                     </div>
                                 </div>{/* end left flex group */}
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-2">
                                     <button
                                         onClick={() => setIsSearchOpen(true)}
-                                        className="w-9 h-9 rounded-full border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-900 hover:bg-gray-50 transition-colors"
-                                        title="Search Transmissions"
+                                        className="w-8 h-8 rounded-lg border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-900 hover:bg-gray-50 transition-colors"
+                                        title="Search"
                                     >
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
+                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
                                     </button>
-                                    <button className="w-9 h-9 rounded-full border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-900 hover:bg-gray-50 transition-colors">
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z" /></svg>
+                                    <button
+                                        onClick={() => setIsRoomInfoOpen(!isRoomInfoOpen)}
+                                        className={`w-8 h-8 rounded-lg border border-gray-100 flex items-center justify-center transition-colors ${isRoomInfoOpen ? "bg-gray-900 text-white border-gray-900" : "text-gray-400 hover:text-gray-900 hover:bg-gray-50"}`}
+                                        title="Info"
+                                    >
+                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
                                     </button>
                                 </div>
                             </div>
@@ -525,132 +729,151 @@ const ChatPage = () => {
                             {/* Messages */}
                             <div
                                 ref={scrollRef}
-                                className="flex-1 overflow-y-auto p-8 space-y-6 scroll-smooth"
+                                className="flex-1 overflow-y-auto p-3 md:p-4 space-y-3 scroll-smooth scrollbar-hide"
                             >
-                                <AnimatePresence initial={false}>
-                                    {messages.map((msg, idx) => {
-                                        const senderStr = (msg.senderId?._id || msg.senderId)?.toString();
-                                        const userStr = (user?._id || user?.userId)?.toString();
-                                        const isSender = senderStr && userStr && senderStr === userStr;
+                                {messagesLoading ? (
+                                    <div className="space-y-6 animate-pulse p-4">
+                                        {[1, 2, 3, 4].map(i => (
+                                            <div key={i} className={`flex items-start gap-3 ${i % 2 === 0 ? "flex-row-reverse" : ""}`}>
+                                                <div className="w-8 h-8 bg-gray-100 rounded-full shrink-0" />
+                                                <div className={`space-y-2 flex-1 max-w-[60%] ${i % 2 === 0 ? "items-end ml-auto" : "items-start"}`}>
+                                                    <div className="h-12 w-full bg-gray-50 rounded-2xl" />
+                                                    <div className="h-3 w-16 bg-gray-50 rounded" />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <AnimatePresence initial={false}>
+                                        {messages.map((msg, idx) => {
+                                            const senderStr = (msg.senderId?._id || msg.senderId)?.toString();
+                                            const userStr = (user?._id || user?.userId)?.toString();
+                                            const isSender = senderStr && userStr && senderStr === userStr;
 
-                                        // Unread divider logic
-                                        const isFirstUnread = !msg.readBy.includes(user?._id) && (idx === 0 || messages[idx - 1].readBy.includes(user?._id));
+                                            // Unread divider logic
+                                            const isFirstUnread = !msg.readBy.includes(user?._id) && (idx === 0 || messages[idx - 1].readBy.includes(user?._id));
 
-                                        return (
-                                            <React.Fragment key={msg._id || idx}>
-                                                {isFirstUnread && (
-                                                    <div className="flex items-center gap-4 my-8">
-                                                        <div className="flex-1 h-px bg-red-100" />
-                                                        <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest bg-red-50 px-3 py-1 rounded-full border border-red-100 shadow-sm">
-                                                            New Messages
-                                                        </span>
-                                                        <div className="flex-1 h-px bg-red-100" />
-                                                    </div>
-                                                )}
-                                                <motion.div
-                                                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                                                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                                                    className={`flex items-start gap-4 group ${isSender ? "flex-row-reverse" : ""}`}
-                                                >
-                                                    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-400 shrink-0">
-                                                        {msg.senderId?.name?.[0]?.toUpperCase() ?? "U"}
-                                                    </div>
-                                                    <div className={`max-w-[70%] ${isSender ? "items-end" : "items-start"} flex flex-col relative`}>
-                                                        {msg.isForwarded && (
-                                                            <span className="text-[9px] text-gray-400 mb-1 flex items-center gap-1">
-                                                                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-                                                                Forwarded
+                                            return (
+                                                <React.Fragment key={msg._id || idx}>
+                                                    {isFirstUnread && (
+                                                        <div className="flex items-center gap-4 my-8">
+                                                            <div className="flex-1 h-px bg-red-100" />
+                                                            <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest bg-red-50 px-3 py-1 rounded-full border border-red-100 shadow-sm">
+                                                                New Messages
                                                             </span>
-                                                        )}
-                                                        <div className={`px-5 py-3 rounded-[24px] text-[13px] leading-relaxed shadow-sm relative group ${isSender ? "bg-gray-900 text-white rounded-tr-none" : "bg-gray-50 text-gray-800 rounded-tl-none border border-gray-100"}`}>
-                                                            {editingMsg?._id === msg._id ? (
-                                                                <div className="flex flex-col gap-2 min-w-[200px]">
-                                                                    <textarea
-                                                                        value={editContent}
-                                                                        onChange={(e) => setEditContent(e.target.value)}
-                                                                        className="w-full bg-transparent text-inherit outline-none border-b border-white/20 p-1 resize-none text-[12px]"
-                                                                        autoFocus
-                                                                    />
-                                                                    <div className="flex justify-end gap-2">
-                                                                        <button onClick={() => setEditingMsg(null)} className="text-[10px] opacity-70">Cancel</button>
-                                                                        <button onClick={handleEditMessage} className="text-[10px] font-bold">Save</button>
+                                                            <div className="flex-1 h-px bg-red-100" />
+                                                        </div>
+                                                    )}
+                                                    <motion.div
+                                                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                        className={`flex items-start gap-4 group ${isSender ? "flex-row-reverse" : ""}`}
+                                                    >
+                                                        <div className={`w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-400 shrink-0 ${isSender ? "hidden" : "flex"}`}>
+                                                            {msg.senderId?.name?.[0]?.toUpperCase() ?? "U"}
+                                                        </div>
+                                                        <div className={`max-w-[85%] md:max-w-[75%] ${isSender ? "items-end ml-auto" : "items-start"} flex flex-col relative`}>
+                                                            {activeRoom?.type !== 'DIRECT' && !isSender && (
+                                                                <span className="text-[10px] font-bold text-gray-500 mb-0.5 ml-1 select-none">
+                                                                    {msg.senderId?.name}
+                                                                </span>
+                                                            )}
+                                                            {msg.isForwarded && (
+                                                                <span className="text-[9px] text-gray-400 mb-0.5 flex items-center gap-1">
+                                                                    <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                                                                    Forwarded
+                                                                </span>
+                                                            )}
+                                                            <div className={`px-3 py-1.5 md:px-4 md:py-2 rounded-2xl text-[13px] leading-relaxed relative group ${isSender ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-800 border border-gray-100"} ${msg.isOptimistic ? "opacity-60" : ""}`}>
+                                                                {editingMsg?._id === msg._id ? (
+                                                                    <div className="flex flex-col gap-2 min-w-[200px]">
+                                                                        <textarea
+                                                                            value={editContent}
+                                                                            onChange={(e) => setEditContent(e.target.value)}
+                                                                            className="w-full bg-transparent text-inherit outline-none border-b border-white/20 p-1 resize-none text-[12px]"
+                                                                            autoFocus
+                                                                        />
+                                                                        <div className="flex justify-end gap-2">
+                                                                            <button onClick={() => setEditingMsg(null)} className="text-[10px] opacity-70">Cancel</button>
+                                                                            <button onClick={handleEditMessage} className="text-[10px] font-bold">Save</button>
+                                                                        </div>
                                                                     </div>
-                                                                </div>
-                                                            ) : (
-                                                                <>
-                                                                    {renderMessageContent(msg.content, isSender)}
-                                                                    {msg.isEdited && <span className="text-[9px] opacity-40 ml-1.5 font-medium tracking-wide">(edited)</span>}
-                                                                </>
-                                                            )}
-                                                            {msg.isPinned && (
-                                                                <div className="absolute -top-2.5 -right-2.5 text-orange-500 bg-orange-50 p-1 rounded-full shadow-sm border border-orange-100 z-10" title="Pinned">
-                                                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M16,12V4H17V2H7V4H8V12L6,14V16H11.2V22H12.8V16H18V14L16,12Z" /></svg>
-                                                                </div>
-                                                            )}
-
-                                                            {/* Hover Actions */}
-                                                            <div className={`absolute top-0 ${isSender ? "right-full mr-2" : "left-full ml-2"} opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 bg-white border border-gray-100 p-1 rounded-lg shadow-sm w-max z-30`}>
-                                                                {isSender && (
+                                                                ) : (
                                                                     <>
-                                                                        <button
-                                                                            onClick={() => { setEditingMsg(msg); setEditContent(msg.content); }}
-                                                                            className="p-1 hover:bg-gray-50 rounded text-gray-400 hover:text-blue-600 transition-colors"
-                                                                            title="Edit"
-                                                                        >
-                                                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={() => handleDeleteMessage(msg._id)}
-                                                                            className="p-1 hover:bg-gray-50 rounded text-gray-400 hover:text-red-500 transition-colors"
-                                                                            title="Delete"
-                                                                        >
-                                                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                                                        </button>
+                                                                        {renderMessageContent(msg.content, isSender)}
+                                                                        {msg.isEdited && <span className="text-[9px] opacity-40 ml-1.5 font-medium tracking-wide">(edited)</span>}
                                                                     </>
                                                                 )}
-                                                                <button onClick={() => setReplyingTo(msg)} className="p-1 hover:bg-gray-50 rounded text-gray-400 hover:text-blue-600 transition-colors" title="Reply">
-                                                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
-                                                                </button>
-                                                                <button onClick={() => { setForwardMessage(msg); setShowForwardModal(true); }} className="p-1 hover:bg-gray-50 rounded text-gray-400 hover:text-green-600 transition-colors" title="Forward">
-                                                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-                                                                </button>
-                                                                <button onClick={() => fetchThread(msg)} className="p-1 hover:bg-gray-50 rounded text-gray-400 hover:text-purple-600 transition-colors" title="Threads">
-                                                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
-                                                                </button>
-                                                                <button onClick={() => handleTogglePin(msg)} className="p-1 hover:bg-gray-50 rounded text-gray-400 hover:text-orange-500 transition-colors" title={msg.isPinned ? "Unpin Focus" : "Pin Message"}>
-                                                                    <svg className="w-3.5 h-3.5" fill={msg.isPinned ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-                                                                </button>
+                                                                {msg.isPinned && (
+                                                                    <div className="absolute -top-2.5 -right-2.5 text-orange-500 bg-orange-50 p-1 rounded-full shadow-sm border border-orange-100 z-10" title="Pinned">
+                                                                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M16,12V4H17V2H7V4H8V12L6,14V16H11.2V22H12.8V16H18V14L16,12Z" /></svg>
+                                                                    </div>
+                                                                )}
+
+                                                                {/* Hover Actions */}
+                                                                <div className={`absolute top-0 ${isSender ? "right-full mr-2" : "left-full ml-2"} opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 bg-white border border-gray-100 p-1 rounded-lg shadow-sm w-max z-30`}>
+                                                                    {isSender && (
+                                                                        <>
+                                                                            <button
+                                                                                onClick={() => { setEditingMsg(msg); setEditContent(msg.content); }}
+                                                                                className="p-1 hover:bg-gray-50 rounded text-gray-400 hover:text-blue-600 transition-colors"
+                                                                                title="Edit"
+                                                                            >
+                                                                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={() => handleDeleteMessage(msg._id)}
+                                                                                className="p-1 hover:bg-gray-50 rounded text-gray-400 hover:text-red-500 transition-colors"
+                                                                                title="Delete"
+                                                                            >
+                                                                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                                            </button>
+                                                                        </>
+                                                                    )}
+                                                                    <button onClick={() => setReplyingTo(msg)} className="p-1 hover:bg-gray-50 rounded text-gray-400 hover:text-blue-600 transition-colors" title="Reply">
+                                                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
+                                                                    </button>
+                                                                    <button onClick={() => { setForwardMessage(msg); setShowForwardModal(true); }} className="p-1 hover:bg-gray-50 rounded text-gray-400 hover:text-green-600 transition-colors" title="Forward">
+                                                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                                                                    </button>
+                                                                    <button onClick={() => fetchThread(msg)} className="p-1 hover:bg-gray-50 rounded text-gray-400 hover:text-purple-600 transition-colors" title="Threads">
+                                                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+                                                                    </button>
+                                                                    <button onClick={() => handleTogglePin(msg)} className="p-1 hover:bg-gray-50 rounded text-gray-400 hover:text-orange-500 transition-colors" title={msg.isPinned ? "Unpin Focus" : "Pin Message"}>
+                                                                        <svg className="w-3.5 h-3.5" fill={msg.isPinned ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                            <div className={`flex items-center gap-1.5 mt-1 ${isSender ? "justify-end" : "justify-start"}`}>
+                                                                <span className="text-[9px] text-gray-400 uppercase tracking-tighter">
+                                                                    {new Date(msg.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                </span>
+                                                                {isSender && (
+                                                                    <div className="flex items-center gap-0.5" title={msg.readBy.length > 1 ? `Read by ${msg.readBy.length - 1} people` : "Sent"}>
+                                                                        {msg.readBy.length > 1 ? (
+                                                                            <div className="flex items-center gap-1">
+                                                                                <span className="text-[8px] font-bold text-blue-500 uppercase tracking-tighter">
+                                                                                    {activeRoom?.type === "DIRECT" ? "Seen" : `Read by ${msg.readBy.length - 1}`}
+                                                                                </span>
+                                                                                <svg className="w-3 h-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <svg className="w-3 h-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                                                        )}
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         </div>
-                                                        <div className={`flex items-center gap-1.5 mt-1 ${isSender ? "justify-end" : "justify-start"}`}>
-                                                            <span className="text-[9px] text-gray-400 uppercase tracking-tighter">
-                                                                {new Date(msg.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                            </span>
-                                                            {isSender && (
-                                                                <div className="flex items-center gap-0.5" title={msg.readBy.length > 1 ? `Read by ${msg.readBy.length - 1} people` : "Sent"}>
-                                                                    {msg.readBy.length > 1 ? (
-                                                                        <div className="flex items-center gap-1">
-                                                                            <span className="text-[8px] font-bold text-blue-500 uppercase tracking-tighter">
-                                                                                {activeRoom?.type === "DIRECT" ? "Seen" : `Read by ${msg.readBy.length - 1}`}
-                                                                            </span>
-                                                                            <svg className="w-3 h-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-                                                                        </div>
-                                                                    ) : (
-                                                                        <svg className="w-3 h-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                                                                    )}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </motion.div>
-                                            </React.Fragment>
-                                        );
-                                    })}
-                                </AnimatePresence>
+                                                    </motion.div>
+                                                </React.Fragment>
+                                            );
+                                        })}
+                                    </AnimatePresence>
+                                )}
                             </div>
 
                             {/* Input Area */}
-                            <div className="p-6 bg-white border-t border-gray-50 relative">
+                            <div className="p-4 bg-white border-t border-gray-50 relative">
                                 {replyingTo && (
                                     <div className="mx-6 mb-3 p-3 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between">
                                         <div className="flex flex-col gap-0.5 min-w-0">
@@ -690,9 +913,9 @@ const ChatPage = () => {
                                     )}
                                 </AnimatePresence>
 
-                                <div className="flex items-center gap-3 bg-gray-50 p-2 rounded-[28px] border border-gray-100 focus-within:border-gray-200 focus-within:bg-white focus-within:shadow-xl transition-all duration-300">
-                                    <button className="w-10 h-10 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-900 hover:bg-white transition-all">
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                                <div className="flex items-center gap-2 bg-gray-50 p-1.5 rounded-xl border border-gray-100 focus-within:border-gray-200 focus-within:bg-white transition-all duration-200">
+                                    <button className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-900 hover:bg-white transition-all">
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
                                     </button>
                                     <input
                                         ref={inputRef}
@@ -706,9 +929,9 @@ const ChatPage = () => {
                                     <button
                                         onClick={handleSendMessage}
                                         disabled={!newMsg.trim() && !showMentions}
-                                        className="w-10 h-10 rounded-full bg-gray-900 text-white flex items-center justify-center disabled:opacity-30 disabled:grayscale transition-all hover:scale-110 active:scale-95 shadow-lg"
+                                        className="w-8 h-8 rounded-lg bg-gray-900 text-white flex items-center justify-center disabled:opacity-30 disabled:grayscale transition-all active:scale-95"
                                     >
-                                        <svg className="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 20 20"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" /></svg>
+                                        <svg className="w-3.5 h-3.5 ml-0.5" fill="currentColor" viewBox="0 0 20 20"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" /></svg>
                                     </button>
                                 </div>
                             </div>
@@ -728,78 +951,261 @@ const ChatPage = () => {
                 <AnimatePresence>
                     {activeThread && (
                         <motion.div
-                            initial={{ x: 400 }}
-                            animate={{ x: 0 }}
-                            exit={{ x: 400 }}
-                            className="w-96 border-l border-gray-100 flex flex-col bg-white shadow-2xl z-30"
+                            initial={{ width: 0, opacity: 0 }}
+                            animate={{ width: 384, opacity: 1 }}
+                            exit={{ width: 0, opacity: 0 }}
+                            className="hidden lg:flex border-l border-gray-100 flex-col bg-white overflow-hidden relative shrink-0"
                         >
-                            <div className="h-20 p-6 border-b border-gray-50 flex items-center justify-between">
-                                <div>
-                                    <h2 className="text-[15px] font-medium text-gray-900 tracking-tight">Thread</h2>
-                                    <p className="text-[10px] text-gray-400 mt-0.5 uppercase tracking-widest font-medium">Discussion context</p>
-                                </div>
-                                <button
-                                    onClick={() => setActiveThread(null)}
-                                    className="p-2 hover:bg-gray-50 rounded-full text-gray-400 transition-colors"
-                                >
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                                </button>
-                            </div>
-
-                            {/* Original Message Copy */}
-                            <div className="p-6 bg-gray-50/50 border-b border-gray-100">
-                                <div className="flex items-start gap-3">
-                                    <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-500">
-                                        {activeThread.senderId?.name?.[0]?.toUpperCase() ?? "U"}
-                                    </div>
+                            <div className="w-96 flex flex-col h-full bg-white">
+                                <div className="h-20 p-6 border-b border-gray-50 flex items-center justify-between">
                                     <div>
-                                        <p className="text-[11px] font-bold text-gray-900 mb-1">{activeThread.senderId?.name}</p>
-                                        <div className="px-4 py-2 bg-white rounded-2xl text-[12px] border border-gray-200 shadow-sm text-gray-700">
-                                            {renderMessageContent(activeThread.content, false)}
-                                        </div>
+                                        <h2 className="text-[15px] font-medium text-gray-900 tracking-tight">Thread</h2>
+                                        <p className="text-[10px] text-gray-400 mt-0.5 uppercase tracking-widest font-medium">Discussion context</p>
                                     </div>
-                                </div>
-                            </div>
-
-                            {/* Thread Messages */}
-                            <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                                {threadMessages.map((tmsg, i) => (
-                                    <div key={tmsg._id || i} className="flex gap-3">
-                                        <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-400 shrink-0">
-                                            {tmsg.senderId?.name?.[0]?.toUpperCase() ?? "U"}
-                                        </div>
-                                        <div className="flex-1">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className="text-[11px] font-bold text-gray-900">{tmsg.senderId?.name}</span>
-                                                <span className="text-[9px] text-gray-400">{new Date(tmsg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                            </div>
-                                            <div className="text-[12px] text-gray-700 leading-relaxed">
-                                                {renderMessageContent(tmsg.content, false)}
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-
-                            {/* Thread Input */}
-                            <div className="p-4 bg-gray-50 border-t border-gray-100">
-                                <div className="flex items-center gap-2 bg-white p-2 rounded-2xl border border-gray-100 shadow-sm">
-                                    <input
-                                        type="text"
-                                        placeholder="Reply to thread..."
-                                        value={newMsg}
-                                        onChange={(e) => setNewMsg(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                                        className="flex-1 bg-transparent outline-none text-[12px] px-2"
-                                    />
                                     <button
-                                        onClick={handleSendMessage}
-                                        disabled={!newMsg.trim()}
-                                        className="w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center disabled:opacity-30"
+                                        onClick={() => setActiveThread(null)}
+                                        className="p-2 hover:bg-gray-50 rounded-full text-gray-400 transition-colors"
                                     >
-                                        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" /></svg>
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                                     </button>
                                 </div>
+
+                                {/* Original Message Copy */}
+                                <div className="p-6 bg-gray-50/50 border-b border-gray-100">
+                                    <div className="flex items-start gap-3">
+                                        <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-500">
+                                            {activeThread.senderId?.name?.[0]?.toUpperCase() ?? "U"}
+                                        </div>
+                                        <div>
+                                            <p className="text-[11px] font-bold text-gray-900 mb-1">{activeThread.senderId?.name}</p>
+                                            <div className="px-4 py-2 bg-white rounded-2xl text-[12px] border border-gray-200 shadow-sm text-gray-700">
+                                                {renderMessageContent(activeThread.content, false)}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Thread Messages */}
+                                <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                                    {threadMessages.map((tmsg, i) => (
+                                        <div key={tmsg._id || i} className="flex gap-3">
+                                            <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-400 shrink-0">
+                                                {tmsg.senderId?.name?.[0]?.toUpperCase() ?? "U"}
+                                            </div>
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className="text-[11px] font-bold text-gray-900">{tmsg.senderId?.name}</span>
+                                                    <span className="text-[9px] text-gray-400">{new Date(tmsg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                </div>
+                                                <div className="text-[12px] text-gray-700 leading-relaxed">
+                                                    {renderMessageContent(tmsg.content, false)}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Thread Input */}
+                                <div className="p-4 bg-gray-50 border-t border-gray-100">
+                                    <div className="flex items-center gap-2 bg-white p-2 rounded-2xl border border-gray-100 shadow-sm">
+                                        <input
+                                            type="text"
+                                            placeholder="Reply to thread..."
+                                            value={newMsg}
+                                            onChange={(e) => setNewMsg(e.target.value)}
+                                            onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                                            className="flex-1 bg-transparent outline-none text-[12px] px-2"
+                                        />
+                                        <button
+                                            onClick={handleSendMessage}
+                                            disabled={!newMsg.trim()}
+                                            className="w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center disabled:opacity-30"
+                                        >
+                                            <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" /></svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* ── Room Info Sidebar ── */}
+                <AnimatePresence>
+                    {isRoomInfoOpen && activeRoom && (
+                        <motion.div
+                            initial={{ width: 0, opacity: 0 }}
+                            animate={{ width: 320, opacity: 1 }}
+                            exit={{ width: 0, opacity: 0 }}
+                            className="hidden lg:flex border-l border-gray-100 flex-col bg-white overflow-hidden relative shrink-0"
+                        >
+                            <div className="w-80 flex flex-col h-full bg-white">
+                                <div className="h-16 p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/10">
+                                    <div>
+                                        <h2 className="text-[14px] font-bold text-gray-900 tracking-tight">Channel Info</h2>
+                                        <p className="text-[9px] text-gray-400 mt-0.5 uppercase tracking-widest font-semibold">Nodes & Settings</p>
+                                    </div>
+                                    <button onClick={() => setIsRoomInfoOpen(false)} className="p-2 hover:bg-gray-50 rounded-full text-gray-400 transition-colors">
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                    </button>
+                                </div>
+
+                                <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-hide">
+                                    {/* Name Section */}
+                                    <section>
+                                        <h4 className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-3 ml-1">Identity</h4>
+                                        {isRenaming ? (
+                                            <div className="flex items-center gap-1.5">
+                                                <input
+                                                    value={renameVal}
+                                                    onChange={(e) => setRenameVal(e.target.value)}
+                                                    className="flex-1 px-2.5 py-1.5 text-[12px] bg-gray-50 border border-gray-100 rounded-lg outline-none"
+                                                    autoFocus
+                                                />
+                                                <button onClick={handleUpdateRoom} className="p-1.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors">
+                                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                                                </button>
+                                                <button onClick={() => setIsRenaming(false)} className="p-1.5 bg-gray-100 text-gray-400 rounded-lg">
+                                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg border border-gray-100 group">
+                                                <div className="min-w-0">
+                                                    <p className="text-[13px] font-semibold text-gray-900 truncate">{activeRoom.name}</p>
+                                                    <p className="text-[9px] text-gray-400 uppercase font-bold tracking-tight">{activeRoom.type || "Public Group"}</p>
+                                                </div>
+                                                {activeRoom.type !== "DIRECT" && (
+                                                    <button onClick={() => setIsRenaming(true)} className="p-1 px-2 bg-white border border-gray-100 rounded-md text-[10px] font-bold text-gray-400 hover:text-gray-900 transition-all">
+                                                        Rename
+                                                    </button>
+                                                )}
+                                            </div>
+                                        )}
+                                    </section>
+
+                                    {/* Participants List */}
+                                    <section>
+                                        <div className="flex items-center justify-between mb-3 ml-1">
+                                            <h4 className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Active Nodes ({roomParticipants.length})</h4>
+                                        </div>
+                                        <div className="space-y-2">
+                                            {roomParticipants.map((p: any) => (
+                                                <div key={p._id} className="flex items-center gap-2.5 p-1.5 bg-gray-50/50 rounded-lg border border-transparent hover:border-gray-100 transition-all">
+                                                    <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-400">
+                                                        {p.userId?.name?.[0]?.toUpperCase() ?? "U"}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-[12px] font-medium text-gray-900 truncate">
+                                                            {p.userId?.name}
+                                                            {p.userId?._id === user?._id && <span className="text-[9px] text-blue-500 ml-1 font-bold">YOU</span>}
+                                                            {onlineUserIds.includes(p.userId?._id) && <span className="w-1.5 h-1.5 bg-green-400 rounded-full inline-block ml-1.5 mb-0.5" />}
+                                                        </p>
+                                                        <p className="text-[9px] text-gray-400 truncate tracking-tight uppercase font-medium">{p.userId?.role || "Member"}</p>
+                                                    </div>
+                                                    {activeRoom.type !== "DIRECT" && p.userId?._id !== user?._id && (
+                                                        <button onClick={() => handleRemoveParticipant(p.userId?._id)} className="p-1 hover:bg-red-50 text-gray-300 hover:text-red-500 rounded transition-colors" title="Remove">
+                                                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </section>
+
+                                    {/* Invite Members */}
+                                    {activeRoom.type !== "DIRECT" && (
+                                        <section>
+                                            <h4 className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-3 ml-1">Invite Nodes</h4>
+                                            <div className="relative">
+                                                <input
+                                                    type="text"
+                                                    placeholder="Search members..."
+                                                    value={memberSearchQuery}
+                                                    onChange={(e) => setMemberSearchQuery(e.target.value)}
+                                                    className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-[12px] outline-none focus:bg-white focus:shadow-sm transition-all"
+                                                />
+                                                {memberSearchQuery.trim().length > 0 && (
+                                                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-100 rounded-lg shadow-xl z-50 max-h-40 overflow-y-auto scrollbar-hide">
+                                                        {members.filter((m: any) =>
+                                                            m.name.toLowerCase().includes(memberSearchQuery.toLowerCase()) &&
+                                                            !roomParticipants.some(rp => rp.userId?._id === m._id)
+                                                        ).length > 0 ? (
+                                                            members.filter((m: any) =>
+                                                                m.name.toLowerCase().includes(memberSearchQuery.toLowerCase()) &&
+                                                                !roomParticipants.some(rp => rp.userId?._id === m._id)
+                                                            ).map((m: any) => (
+                                                                <button
+                                                                    key={m._id}
+                                                                    onClick={() => handleAddParticipant(m._id)}
+                                                                    className="w-full flex items-center gap-2 p-2 hover:bg-gray-50 text-left transition-colors border-b border-gray-50 last:border-0"
+                                                                >
+                                                                    <div className="w-6 h-6 rounded bg-gray-100 flex items-center justify-center text-[9px] font-bold text-gray-400">
+                                                                        {m.name?.[0]?.toUpperCase()}
+                                                                    </div>
+                                                                    <div>
+                                                                        <p className="text-[12px] font-medium text-gray-900">{m.name}</p>
+                                                                        <p className="text-[9px] text-gray-400">{m.email}</p>
+                                                                    </div>
+                                                                    <svg className="w-3 h-3 text-emerald-500 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                                                                </button>
+                                                            ))
+                                                        ) : (
+                                                            <div className="p-3 text-center">
+                                                                <p className="text-[10px] text-gray-400 italic">No nodes found</p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </section>
+                                    )}
+
+                                    {/* Actions Section */}
+                                    <section className="pt-4 border-t border-gray-100 space-y-2">
+                                        {(activeRoom.createdBy === user?._id || user?.role === "ADMIN" || user?.role === "OWNER") && activeRoom.type !== 'DIRECT' ? (
+                                            <button
+                                                onClick={handleDeleteRoom}
+                                                className="w-full flex items-center gap-2 px-3 py-2 text-red-500 hover:bg-red-50 rounded-xl transition-all text-[12px] font-semibold"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                Delete Channel
+                                            </button>
+                                        ) : activeRoom.type !== 'DIRECT' ? (
+                                            <button
+                                                onClick={handleLeaveRoom}
+                                                className="w-full flex items-center gap-2 px-3 py-2 text-red-500 hover:bg-red-50 rounded-xl transition-all text-[12px] font-semibold"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7" /></svg>
+                                                Leave Channel
+                                            </button>
+                                        ) : null}
+                                    </section>
+                                </div>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* Mobile version remains absolute */}
+                <AnimatePresence>
+                    {isRoomInfoOpen && activeRoom && (
+                        <motion.div
+                            initial={{ x: "100%" }}
+                            animate={{ x: 0 }}
+                            exit={{ x: "100%" }}
+                            className="fixed inset-0 z-50 bg-white lg:hidden flex flex-col"
+                        >
+                            <div className="h-16 p-4 border-b border-gray-100 flex items-center justify-between">
+                                <button onClick={() => setIsRoomInfoOpen(false)} className="p-2">
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                                </button>
+                                <h2 className="text-[16px] font-bold text-gray-900">Manage Channel</h2>
+                                <div className="w-10" />
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-4 space-y-6">
+                                <p className="text-center text-gray-400 py-20 italic text-[13px]">Channel management optimized for desktop view.</p>
+                                <button onClick={() => setIsRoomInfoOpen(false)} className="w-full py-3 bg-gray-900 text-white rounded-xl font-bold">Return to Chat</button>
                             </div>
                         </motion.div>
                     )}
@@ -924,7 +1330,8 @@ const ChatPage = () => {
                     </motion.div>
                 )}
             </AnimatePresence>
-        </DashboardLayout>
+
+        </DashboardLayout >
     );
 };
 

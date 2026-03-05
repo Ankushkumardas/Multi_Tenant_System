@@ -15,9 +15,10 @@ const chatParticipantSchema = new mongoose.Schema(
       required: true,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 chatParticipantSchema.index({ chatRoomId: 1, userId: 1 }, { unique: true });
+chatParticipantSchema.index({ userId: 1 });
 
 export default mongoose.model("ChatParticipant", chatParticipantSchema);
