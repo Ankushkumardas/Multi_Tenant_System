@@ -4,7 +4,7 @@ import User from "../models/UserSchema.js";
 import ChatParticipant from "../models/ChatUserSchema.js";
 import { registerChatHandler } from "./chatHandler.js";
 import { registerOnlineUsersHandler } from "./onlineUsers.js";
-import { registerTypingHanlder } from "./typingHandler.js";
+import { registerTypingHandler } from "./typingHandler.js";
 
 let io;
 export const setupSocket = (server, app) => {
@@ -16,6 +16,7 @@ export const setupSocket = (server, app) => {
         "http://localhost:3000",
         "http://localhost:5175",
         "http://localhost:5176",
+        process.env.FRONTEND_URL,
       ],
       credentials: true,
     },
@@ -46,19 +47,18 @@ export const setupSocket = (server, app) => {
   //socket connection
   io.on("connection", async (socket) => {
     const userId = socket.userId;
-    //join user to its own personal room when a user log's in
-    socket.join(userId);
-    console.log("User connected:", userId);
-    //and alos join user to all teh romms he is been added to
+    socket.join(userId.toString());
+    console.log("User connected:", userId.toString());
+
     const memberships = await ChatParticipant.find({ userId: userId });
     memberships.forEach((membership) => {
       socket.join(membership.chatRoomId.toString());
     });
 
-    //register chat handler
+    //register handlers
     registerChatHandler(io, socket);
     registerOnlineUsersHandler(io, socket);
-    registerTypingHanlder(io, socket);
+    registerTypingHandler(io, socket);
     //
     socket.on("disconnect", () => {
       console.log("User disconnected:", userId);

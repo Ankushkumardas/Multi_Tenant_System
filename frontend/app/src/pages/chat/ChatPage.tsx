@@ -72,7 +72,8 @@ const ChatPage = () => {
         const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
         const SOCKET_URL = API_URL.startsWith("http") ? new URL(API_URL).origin : window.location.origin;
         const socket = io(SOCKET_URL, {
-            auth: { token: localStorage.getItem("token") }
+            auth: { token: localStorage.getItem("token") },
+            transports: ['websocket']
         });
         socketRef.current = socket;
 
@@ -161,17 +162,19 @@ const ChatPage = () => {
         });
 
         socket.on("typing", ({ chatRoomId, userId }: any) => {
-            if (userId === user?._id) return;
+            const uidStr = userId.toString();
+            if (uidStr === user?._id?.toString()) return;
             setTypingUsers(prev => ({
                 ...prev,
-                [chatRoomId]: [...(prev[chatRoomId] || []).filter(u => u !== userId), userId]
+                [chatRoomId]: [...(prev[chatRoomId] || []).filter(u => u !== uidStr), uidStr]
             }));
         });
 
         socket.on("stopTyping", ({ chatRoomId, userId }: any) => {
+            const uidStr = userId.toString();
             setTypingUsers(prev => ({
                 ...prev,
-                [chatRoomId]: (prev[chatRoomId] || []).filter(u => u !== userId)
+                [chatRoomId]: (prev[chatRoomId] || []).filter(u => u !== uidStr)
             }));
         });
 
@@ -1203,9 +1206,68 @@ const ChatPage = () => {
                                 <h2 className="text-[16px] font-bold text-gray-900">Manage Channel</h2>
                                 <div className="w-10" />
                             </div>
-                            <div className="flex-1 overflow-y-auto p-4 space-y-6">
-                                <p className="text-center text-gray-400 py-20 italic text-[13px]">Channel management optimized for desktop view.</p>
-                                <button onClick={() => setIsRoomInfoOpen(false)} className="w-full py-3 bg-gray-900 text-white rounded-xl font-bold">Return to Chat</button>
+                            <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-hide">
+                                {/* Name Section */}
+                                <section>
+                                    <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3 ml-1">Identity</h4>
+                                    <div className="flex items-center justify-between p-3.5 bg-gray-50 rounded-2xl border border-gray-100">
+                                        <div className="min-w-0">
+                                            <p className="text-[15px] font-bold text-gray-900 truncate">{activeRoom.name}</p>
+                                            <p className="text-[10px] text-gray-400 uppercase font-bold tracking-tight mt-0.5">{activeRoom.type || "Public Group"}</p>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                {/* Participants List */}
+                                <section>
+                                    <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3 ml-1">Nodes ({roomParticipants.length})</h4>
+                                    <div className="space-y-2">
+                                        {roomParticipants.map((p: any) => (
+                                            <div key={p._id} className="flex items-center gap-3 p-3 bg-gray-50/50 rounded-2xl border border-transparent">
+                                                <div className="w-10 h-10 rounded-xl bg-gray-200 flex items-center justify-center text-[13px] font-bold text-gray-500">
+                                                    {p.userId?.name?.[0]?.toUpperCase() ?? "U"}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-[14px] font-bold text-gray-900 truncate">
+                                                        {p.userId?.name}
+                                                        {p.userId?._id === user?._id && <span className="text-[10px] text-blue-500 ml-1.5 font-bold">YOU</span>}
+                                                        {onlineUserIds.includes(p.userId?._id) && <span className="w-2 h-2 bg-green-400 rounded-full inline-block ml-2 mb-0.5 shadow-sm shadow-green-100" />}
+                                                    </p>
+                                                    <p className="text-[11px] text-gray-400 tracking-tight uppercase font-medium">{p.userId?.role || "Member"}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </section>
+
+                                {/* Actions */}
+                                <section className="pt-6 border-t border-gray-100 space-y-3">
+                                    {activeRoom.type !== 'DIRECT' && (
+                                        (activeRoom.createdBy === user?._id || user?.role === "ADMIN" || user?.role === "OWNER") ? (
+                                            <button
+                                                onClick={() => { setIsRoomInfoOpen(false); handleDeleteRoom(); }}
+                                                className="w-full flex items-center justify-center gap-2 py-4 text-red-500 bg-red-50 rounded-2xl transition-all text-[14px] font-bold"
+                                            >
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                Terminate Channel
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={() => { setIsRoomInfoOpen(false); handleLeaveRoom(); }}
+                                                className="w-full flex items-center justify-center gap-2 py-4 text-red-500 bg-red-50 rounded-2xl transition-all text-[14px] font-bold"
+                                            >
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7" /></svg>
+                                                Leave Channel
+                                            </button>
+                                        )
+                                    )}
+                                    <button
+                                        onClick={() => setIsRoomInfoOpen(false)}
+                                        className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold text-[14px] shadow-lg shadow-gray-200"
+                                    >
+                                        Return to Chat
+                                    </button>
+                                </section>
                             </div>
                         </motion.div>
                     )}
