@@ -69,11 +69,13 @@ const ChatPage = () => {
 
     useEffect(() => {
         fetchRooms();
-        const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
+        const API_URL = import.meta.env.VITE_API_URL || "/api";
         const SOCKET_URL = API_URL.startsWith("http") ? new URL(API_URL).origin : window.location.origin;
         const socket = io(SOCKET_URL, {
             auth: { token: localStorage.getItem("token") },
-            transports: ['websocket']
+            path: "/socket.io/",
+            reconnectionAttempts: 5,
+            timeout: 10000
         });
         socketRef.current = socket;
 
