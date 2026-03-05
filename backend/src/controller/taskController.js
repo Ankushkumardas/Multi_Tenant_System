@@ -84,18 +84,88 @@ export const updateTask = async (req, res) => {
       dueDate,
       assignedTo,
       sectionId,
+      subtasks,
     } = req.body;
     const tenantId = req.user.tenantId;
-    const task = await Task.findOneAndUpdate(
-      { _id: taskId, tenantId },
-      { title, description, status, priority, dueDate, assignedTo, sectionId },
-      { new: true },
-    );
-    if (!task) {
+    const updateData = {};
+    const fields = [
+      "title",
+      "description",
+      "status",
+      "priority",
+      "dueDate",
+      "assignedTo",
+      "sectionId",
+      "subtasks",
+    ];
+    fields.forEach((field) => {
+      if (req.body[field] !== undefined) {
+        updateData[field] = req.body[field];
+      }
+    });
+
+    const oldTask = await Task.findOne({ _id: taskId, tenantId });
+    if (!oldTask) {
       return res
         .status(404)
         .json({ success: false, message: "Task not found" });
     }
+
+    const task = await Task.findOneAndUpdate(
+      { _id: taskId, tenantId },
+      { $set: updateData },
+      { new: true },
+    );
+
+    // subtask completion notifications
+    if (subtasks && Array.isArray(subtasks)) {
+      subtasks.forEach((st) => {
+        if (st.isCompleted) {
+          const oldSt = oldTask.subtasks.find((os) => os.title === st.title);
+          if (!oldSt || !oldSt.isCompleted) {
+            const notified = new Set();
+            const recipients = [...(task.assignedTo || []), task.createdBy];
+            recipients.forEach((uid) => {
+              const ustr = uid.toString();
+              if (ustr !== req.user.userId.toString() && !notified.has(ustr)) {
+                notified.add(ustr);
+                createNotification(req, {
+                  tenantId,
+                  userId: uid,
+                  title: "Subtask Completed",
+                  type: "TASK_UPDATE",
+                  message: `${req.user.name} completed subtask '${st.title}'`,
+                }).catch((e) => console.log(e));
+              }
+            });
+          }
+        }
+      });
+    }
+
+    // task completion / review notifications
+    if (
+      task.status !== oldTask.status &&
+      (task.status === "DONE" || task.status === "REVIEW")
+    ) {
+      const label = task.status === "DONE" ? "completed" : "under review";
+      const notified = new Set();
+      const recipients = [...(task.assignedTo || []), task.createdBy];
+      recipients.forEach((uid) => {
+        const ustr = uid.toString();
+        if (ustr !== req.user.userId.toString() && !notified.has(ustr)) {
+          notified.add(ustr);
+          createNotification(req, {
+            tenantId,
+            userId: uid,
+            title: `Task ${task.status}`,
+            type: "TASK_UPDATE",
+            message: `${req.user.name} marked task '${task.title}' as ${label}`,
+          }).catch((e) => console.log(e));
+        }
+      });
+    }
+
     const meta = { taskId, changes: req.body };
     saveAuditLog({
       tenantId,
@@ -278,16 +348,42 @@ export const updateTaskStatus = async (req, res) => {
     const { taskId } = req.params;
     const { status } = req.body;
     const tenantId = req.user.tenantId;
+
+    const oldTask = await Task.findOne({ _id: taskId, tenantId });
+    if (!oldTask) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Task not found" });
+    }
+
     const task = await Task.findOneAndUpdate(
       { _id: taskId, tenantId },
       { status },
       { new: true },
     );
-    if (!task) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Task not found" });
+
+    if (
+      task.status !== oldTask.status &&
+      (task.status === "DONE" || task.status === "REVIEW")
+    ) {
+      const label = task.status === "DONE" ? "completed" : "under review";
+      const notified = new Set();
+      const recipients = [...(task.assignedTo || []), task.createdBy];
+      recipients.forEach((uid) => {
+        const ustr = uid.toString();
+        if (ustr !== req.user.userId.toString() && !notified.has(ustr)) {
+          notified.add(ustr);
+          createNotification(req, {
+            tenantId,
+            userId: uid,
+            title: `Task ${task.status}`,
+            type: "TASK_UPDATE",
+            message: `${req.user.name} marked task '${task.title}' as ${label}`,
+          }).catch((e) => console.log(e));
+        }
+      });
     }
+
     saveAuditLog({
       tenantId,
       actorUserId: req.user.userId,
@@ -404,23 +500,28 @@ export const getDashboardStats = async (req, res) => {
     const { tenantId, userId } = req.user;
     const now = new Date().toISOString();
 
-    const [totalProjects, totalTasks, assignedTasks, doneTasks, pendingTasks] =
-      await Promise.all([
-        mongoose.model("Project").countDocuments({ tenantId }),
-        Task.countDocuments({ tenantId }),
-        Task.countDocuments({ tenantId, assignedTo: userId }),
-        Task.countDocuments({ tenantId, status: "DONE" }),
-        Task.countDocuments({
-          tenantId,
-          status: { $in: ["TODO", "IN_PROGRESS", "REVIEW"] },
-        }),
-      ]);
-
-    const overdueTasks = await Task.countDocuments({
-      tenantId,
-      status: { $ne: "DONE" },
-      dueDate: { $lt: now },
-    });
+    const [
+      totalProjects,
+      totalTasks,
+      assignedTasks,
+      doneTasks,
+      pendingTasks,
+      backlogTasks,
+    ] = await Promise.all([
+      mongoose.model("Project").countDocuments({ tenantId }),
+      Task.countDocuments({ tenantId }),
+      Task.countDocuments({
+        tenantId,
+        assignedTo: userId,
+      }),
+      Task.countDocuments({ tenantId, assignedTo: userId, status: "DONE" }),
+      Task.countDocuments({
+        tenantId,
+        assignedTo: userId,
+        status: { $in: ["TODO", "IN_PROGRESS", "REVIEW"] },
+      }),
+      Task.countDocuments({ tenantId, assignedTo: userId, status: "BACKLOGS" }),
+    ]);
 
     res.status(200).json({
       success: true,
@@ -430,7 +531,7 @@ export const getDashboardStats = async (req, res) => {
         assignedTasks,
         doneTasks,
         pendingTasks,
-        overdueTasks,
+        backlogTasks,
       },
     });
   } catch (error) {
@@ -441,7 +542,11 @@ export const getDashboardStats = async (req, res) => {
 export const getAssignedTasks = async (req, res) => {
   try {
     const { userId, tenantId } = req.user;
-    const tasks = await Task.find({ tenantId, assignedTo: userId })
+
+    const tasks = await Task.find({
+      tenantId,
+      assignedTo: userId,
+    })
       .populate("projectId", "name")
       .sort({ dueDate: 1 })
       .limit(10);

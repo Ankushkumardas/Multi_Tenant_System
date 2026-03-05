@@ -10,6 +10,11 @@ const UserSchema = new mongoose.Schema(
 
     name: { type: String },
     email: { type: String, required: true },
+    phone: { type: String },
+    bio: { type: String },
+    location: { type: String },
+    jobTitle: { type: String },
+    profileImage: { type: String },
     password: { type: String },
 
     role: {

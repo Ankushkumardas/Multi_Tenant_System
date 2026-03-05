@@ -129,26 +129,28 @@ const ActivityPage = () => {
                     {/* General bar chart */}
                     <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 p-6">
                         <h3 className="text-[14px] font-bold text-gray-900 mb-5">Activity Over Time (14 Days)</h3>
-                        <div className="flex items-end gap-1" style={{ height: CHART_H }}>
-                            {dailyChart.labels.map((label, i) => {
-                                const px = dailyChart.max > 0
-                                    ? Math.max(Math.round((dailyChart.values[i] / dailyChart.max) * CHART_H), dailyChart.values[i] > 0 ? 4 : 2)
-                                    : 2;
-                                return (
-                                    <div key={label} className="flex-1 flex flex-col items-center justify-end gap-1.5 group relative h-full">
-                                        <div className="absolute -top-6 left-1/2 -translate-x-1/2 hidden group-hover:flex bg-gray-900 text-white text-[9px] px-2 py-1 rounded-md whitespace-nowrap z-10 shadow">
-                                            {label}: {dailyChart.values[i]}
+                        <div className="overflow-x-auto pb-4 scrollbar-hide">
+                            <div className="flex items-end gap-1 min-w-[500px]" style={{ height: CHART_H }}>
+                                {dailyChart.labels.map((label, i) => {
+                                    const px = dailyChart.max > 0
+                                        ? Math.max(Math.round((dailyChart.values[i] / dailyChart.max) * CHART_H), dailyChart.values[i] > 0 ? 4 : 2)
+                                        : 2;
+                                    return (
+                                        <div key={label} className="flex-1 flex flex-col items-center justify-end gap-1.5 group relative h-full">
+                                            <div className="absolute -top-6 left-1/2 -translate-x-1/2 hidden group-hover:flex bg-gray-900 text-white text-[9px] px-2 py-1 rounded-md whitespace-nowrap z-10 shadow">
+                                                {label}: {dailyChart.values[i]}
+                                            </div>
+                                            <motion.div
+                                                initial={{ height: 0 }}
+                                                animate={{ height: px }}
+                                                transition={{ duration: 0.5, delay: i * 0.03 }}
+                                                className="w-full max-w-[28px] bg-blue-100 group-hover:bg-blue-500 rounded-t-md transition-colors"
+                                            />
+                                            <span className="text-[7px] font-medium text-gray-400 whitespace-nowrap">{label.slice(0, 6)}</span>
                                         </div>
-                                        <motion.div
-                                            initial={{ height: 0 }}
-                                            animate={{ height: px }}
-                                            transition={{ duration: 0.5, delay: i * 0.03 }}
-                                            className="w-full max-w-[28px] bg-blue-100 group-hover:bg-blue-500 rounded-t-md transition-colors"
-                                        />
-                                        <span className="text-[7px] font-medium text-gray-400 whitespace-nowrap">{label.slice(0, 6)}</span>
-                                    </div>
-                                );
-                            })}
+                                    );
+                                })}
+                            </div>
                         </div>
                     </div>
 
@@ -198,50 +200,52 @@ const ActivityPage = () => {
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                             {/* Stacked bar chart */}
                             <div className="lg:col-span-2">
-                                <div className="flex items-end gap-1" style={{ height: 160 }}>
-                                    {taskDayKeys.map((key, i) => {
-                                        const dayTotal = taskDayTotals[i];
-                                        const barH = taskMax > 0
-                                            ? Math.max(Math.round((dayTotal / taskMax) * 160), dayTotal > 0 ? 4 : 2)
-                                            : 2;
-                                        const segments = Object.entries(ACTION_COLORS)
-                                            .filter(([a]) => (taskDayMap[key]?.[a] ?? 0) > 0)
-                                            .map(([a, color]) => ({
-                                                action: a, color,
-                                                h: dayTotal > 0 ? Math.max(1, Math.round(((taskDayMap[key][a] || 0) / dayTotal) * barH)) : 0,
-                                            }));
-                                        return (
-                                            <div key={key} className="flex-1 flex flex-col items-center justify-end gap-1.5 group relative h-full">
-                                                <div className="absolute -top-6 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col bg-gray-900 text-white text-[8px] px-2 py-1.5 rounded-lg whitespace-nowrap z-10 shadow-xl gap-0.5">
-                                                    <span className="font-bold">{taskDayLabels[i]}</span>
-                                                    {segments.map((s) => (
-                                                        <span key={s.action} className="flex items-center gap-1">
-                                                            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
-                                                            {ACTION_LABEL[s.action]}: {taskDayMap[key][s.action]}
-                                                        </span>
-                                                    ))}
-                                                    {dayTotal === 0 && <span className="text-gray-400">No activity</span>}
+                                <div className="overflow-x-auto pb-4 scrollbar-hide">
+                                    <div className="flex items-end gap-1 min-w-[600px]" style={{ height: 160 }}>
+                                        {taskDayKeys.map((key, i) => {
+                                            const dayTotal = taskDayTotals[i];
+                                            const barH = taskMax > 0
+                                                ? Math.max(Math.round((dayTotal / taskMax) * 160), dayTotal > 0 ? 4 : 2)
+                                                : 2;
+                                            const segments = Object.entries(ACTION_COLORS)
+                                                .filter(([a]) => (taskDayMap[key]?.[a] ?? 0) > 0)
+                                                .map(([a, color]) => ({
+                                                    action: a, color,
+                                                    h: dayTotal > 0 ? Math.max(1, Math.round(((taskDayMap[key][a] || 0) / dayTotal) * barH)) : 0,
+                                                }));
+                                            return (
+                                                <div key={key} className="flex-1 flex flex-col items-center justify-end gap-1.5 group relative h-full">
+                                                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col bg-gray-900 text-white text-[8px] px-2 py-1.5 rounded-lg whitespace-nowrap z-10 shadow-xl gap-0.5">
+                                                        <span className="font-bold">{taskDayLabels[i]}</span>
+                                                        {segments.map((s) => (
+                                                            <span key={s.action} className="flex items-center gap-1">
+                                                                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                                                                {ACTION_LABEL[s.action]}: {taskDayMap[key][s.action]}
+                                                            </span>
+                                                        ))}
+                                                        {dayTotal === 0 && <span className="text-gray-400">No activity</span>}
+                                                    </div>
+                                                    {/* stacked bar */}
+                                                    <div className="w-full max-w-[28px] rounded-t-md overflow-hidden flex flex-col-reverse" style={{ height: barH }}>
+                                                        {segments.length === 0
+                                                            ? <div className="flex-1 bg-gray-100" />
+                                                            : segments.map((s) => (
+                                                                <motion.div
+                                                                    key={s.action}
+                                                                    initial={{ height: 0 }}
+                                                                    animate={{ height: s.h }}
+                                                                    transition={{ duration: 0.5, delay: i * 0.03 }}
+                                                                    style={{ backgroundColor: s.color }}
+                                                                    className="w-full"
+                                                                />
+                                                            ))
+                                                        }
+                                                    </div>
+                                                    <span className="text-[7px] font-medium text-gray-400 whitespace-nowrap">{taskDayLabels[i].slice(0, 6)}</span>
                                                 </div>
-                                                {/* stacked bar */}
-                                                <div className="w-full max-w-[28px] rounded-t-md overflow-hidden flex flex-col-reverse" style={{ height: barH }}>
-                                                    {segments.length === 0
-                                                        ? <div className="flex-1 bg-gray-100" />
-                                                        : segments.map((s) => (
-                                                            <motion.div
-                                                                key={s.action}
-                                                                initial={{ height: 0 }}
-                                                                animate={{ height: s.h }}
-                                                                transition={{ duration: 0.5, delay: i * 0.03 }}
-                                                                style={{ backgroundColor: s.color }}
-                                                                className="w-full"
-                                                            />
-                                                        ))
-                                                    }
-                                                </div>
-                                                <span className="text-[7px] font-medium text-gray-400 whitespace-nowrap">{taskDayLabels[i].slice(0, 6)}</span>
-                                            </div>
-                                        );
-                                    })}
+                                            );
+                                        })}
+                                    </div>
                                 </div>
                                 {/* legend */}
                                 <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3">

@@ -8,6 +8,7 @@ import {
   changePasword,
   updateTenantSlug,
   revokeSession,
+  revokeOthersSessions,
 } from "../controller/authController.js";
 import { rateLimiter } from "../middleware/ratelimiter.js";
 
@@ -45,6 +46,12 @@ router.post(
 );
 
 router.delete("/sessions/:sessionId", authenticate, checkTenant, revokeSession);
+router.delete(
+  "/sessions-revoke-others",
+  authenticate,
+  checkTenant,
+  revokeOthersSessions,
+);
 router.put("/workspace", authenticate, checkTenant, updateTenantSlug);
 
 export default router;

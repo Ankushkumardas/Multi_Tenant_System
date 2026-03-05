@@ -148,20 +148,27 @@ const Sidebar = ({ open, onClose }: SidebarProps) => {
                     </nav>
                 </div>
 
-                {/* User profile + logout */}
-                <div className="border-t border-gray-100 p-4 shrink-0 bg-white">
-                    <div className="flex items-center gap-3 mb-4 px-2">
-                        <div className="w-10 h-10 rounded-full bg-[#0B0E14] text-white flex items-center justify-center text-[14px] font-bold">
-                            {user?.name?.[0]?.toUpperCase() ?? "U"}
+                <div className="border-t border-gray-100 p-3 shrink-0 bg-white space-y-3">
+                    <Link
+                        to={`/${slug}/settings/account`}
+                        onClick={() => window.innerWidth < 1024 && onClose()}
+                        className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition-colors group"
+                    >
+                        <div className="w-8 h-8 rounded-full bg-[#0B0E14] text-white flex items-center justify-center text-[14px] font-bold group-hover:scale-105 transition-transform">
+                            {user?.profileImage ? (
+                                <img src={user.profileImage} className="w-full h-full rounded-full object-cover" alt="Avatar" />
+                            ) : (
+                                user?.name?.[0]?.toUpperCase() ?? "U"
+                            )}
                         </div>
                         <div className="min-w-0">
-                            <p className="text-[14px] font-bold text-gray-900 truncate leading-tight">{user?.name ?? "User"}</p>
-                            <p className="text-[10px] font-medium text-gray-500 truncate capitalize">{user?.role?.toLowerCase()}</p>
+                            <p className="text-[14px] font-bold text-gray-900 truncate leading-tight group-hover:text-blue-600 transition-colors">{user?.name ?? "User"}</p>
+                            <p className="text-[11px] font-medium text-gray-500 truncate capitalize">{user?.role?.toLowerCase()}</p>
                         </div>
-                    </div>
+                    </Link>
                     <button
                         onClick={handleLogout}
-                        className="w-full flex items-center justify-center gap-2 h-10 bg-white border border-gray-200 rounded-lg text-[11px] text-gray-600 hover:text-red-600 hover:bg-red-50 hover:border-red-100 transition-all font-bold uppercase tracking-widest group"
+                        className="w-full flex items-center justify-center gap-2 h-8 bg-white border border-gray-200 rounded-lg text-[11px] text-gray-600 hover:text-red-600 hover:bg-red-50 hover:border-red-100 transition-all font-bold uppercase tracking-tight group"
                     >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -199,14 +206,19 @@ const TopBar = ({ onMenuClick }: { onMenuClick: () => void }) => {
 
             <div className="flex items-center gap-4">
                 <NotificationDropdown />
-                <div className="flex items-center gap-2.5">
-                    <span className="text-[13px] font-medium text-gray-700 hidden sm:block tracking-tight">
-                        {user?.name ?? "User"}
+                <Link to={`/${user?.tenantId?.slug || user?.tenantId || 'workspace'}/settings/account`} className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
+                    <span className="text-[13px] font-medium text-gray-700 hidden sm:block tracking-tight text-right">
+                        <p className="leading-none">{user?.name ?? "User"}</p>
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">{user?.role?.toLowerCase()}</p>
                     </span>
-                    <div className="w-8 h-8 rounded-lg bg-gray-900 flex items-center justify-center text-white text-[12px] font-bold shadow-sm">
-                        {user?.name?.[0]?.toUpperCase() ?? "U"}
+                    <div className="w-8 h-8 rounded-full bg-gray-900 flex items-center justify-center text-white text-[12px] font-bold shadow-sm overflow-hidden">
+                        {user?.profileImage ? (
+                            <img src={user.profileImage} className="w-full h-full object-cover" alt="Profile" />
+                        ) : (
+                            user?.name?.[0]?.toUpperCase() ?? "U"
+                        )}
                     </div>
-                </div>
+                </Link>
             </div>
         </header>
     );

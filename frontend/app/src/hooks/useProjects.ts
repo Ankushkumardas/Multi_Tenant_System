@@ -90,3 +90,16 @@ export const useProjectStats = (projectId: string | undefined) => {
         enabled: !!projectId && !!slug,
     });
 };
+
+// ── Task Activity ─────────────────────────────────────────────────────────────
+export const useTaskActivity = (taskId: string) => {
+    const { slug } = useParams();
+    return useQuery({
+        queryKey: ["task-activity", slug, taskId],
+        queryFn: async () => {
+            const res = await api.get(`/${slug}/activity/task/${taskId}`);
+            return res.data;
+        },
+        enabled: !!taskId,
+    });
+};

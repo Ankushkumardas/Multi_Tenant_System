@@ -6,6 +6,7 @@ import {
   UserActivity,
   getActivityStats,
   getTaskActivityChart,
+  getTaskActivity,
 } from "../controller/activityController.js";
 import {
   getDashboardStats,
@@ -23,6 +24,7 @@ router.get("/", getTenantActitvity);
 router.get("/dashboard-stats", getDashboardStats);
 router.get("/assigned-tasks", getAssignedTasks);
 router.get("/project/:projectId", getProjectActivity);
+router.get("/task/:taskId", getTaskActivity);
 router.get("/user/:userId", UserActivity);
 router.get("/stats", getActivityStats);
 router.get("/task-chart", getTaskActivityChart);

@@ -11,7 +11,7 @@ import { useAlertStore } from "../../store/alertStore";
 const ProjectsPage = () => {
     const { user } = useAuthStore();
     const { data: projectsData, isLoading } = useProjects();
-    const [statusTab, setStatusTab] = useState<"ALL" | "ACTIVE" | "ARCHIVED">("ACTIVE");
+    const [statusTab, setStatusTab] = useState("ALL");
     const [search, setSearch] = useState("");
     const [showCreate, setShowCreate] = useState(false);
     const [selectedProject, setSelectedProject] = useState<any>(null);
@@ -44,16 +44,21 @@ const ProjectsPage = () => {
     const allProjects: any[] = projectsData?.projects ?? projectsData ?? [];
     const isOwner = user?.role === "OWNER" || user?.role === "ADMIN";
 
-    const filtered = allProjects.filter(p => {
+    const filtered = allProjects.filter((p: any) => {
         const matchSearch = p.name?.toLowerCase().includes(search.toLowerCase()) ||
             p.description?.toLowerCase().includes(search.toLowerCase());
 
         let matchTab = true;
-        if (statusTab === "ACTIVE") matchTab = !p.isArchived && p.status !== "ARCHIVED";
-        if (statusTab === "ARCHIVED") matchTab = p.isArchived || p.status === "ARCHIVED";
+        if (statusTab !== "ALL") {
+            if (statusTab === "ACTIVE") matchTab = p.status === "ACTIVE" || (!p.isArchived && !["ARCHIVED", "COMPLETED", "ON_HOLD", "CANCELLED"].includes(p.status));
+            else if (statusTab === "ARCHIVED") matchTab = p.isArchived || p.status === "ARCHIVED";
+            else matchTab = p.status === statusTab;
+        }
 
         return matchSearch && matchTab;
     });
+
+    const statusOptions = ["ALL", "ACTIVE", "ARCHIVED", "COMPLETED", "ON_HOLD", "CANCELLED"];
 
     return (
         <DashboardLayout title="Projects Hub">
@@ -74,14 +79,17 @@ const ProjectsPage = () => {
                 </div>
 
                 <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-white p-4 rounded-2xl border border-gray-100">
-                    <div className="flex gap-1 overflow-x-auto pb-1 md:pb-0">
-                        {(["ALL", "ACTIVE", "ARCHIVED"] as const).map(tab => (
+                    <div className="flex gap-2.5 overflow-x-auto pb-1 md:pb-0 hide-scrollbar">
+                        {statusOptions.map(tab => (
                             <button
                                 key={tab}
                                 onClick={() => setStatusTab(tab)}
-                                className={`px-4 py-1.5 rounded-lg text-[12px] font-medium transition-all whitespace-nowrap ${statusTab === tab ? "bg-gray-900 text-white" : "text-gray-500 hover:bg-gray-50"}`}
+                                className={`px-4 py-1 rounded-md text-[11px] font-bold transition-all whitespace-nowrap ${statusTab === tab
+                                    ? "bg-gray-900 text-white"
+                                    : "bg-white border border-gray-200 text-black"
+                                    }`}
                             >
-                                {tab}
+                                {tab.replace("_", " ")}
                             </button>
                         ))}
                     </div>

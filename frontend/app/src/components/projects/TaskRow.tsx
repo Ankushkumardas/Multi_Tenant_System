@@ -13,9 +13,10 @@ interface TaskRowProps {
     qc: any;
     projectMembers: any[];
     sections: any[];
+    isOverlay?: boolean;
 }
 
-export const TaskRow = ({ task, projectId, slug, qc, projectMembers, sections }: TaskRowProps) => {
+export const TaskRow = ({ task, projectId, slug, qc, projectMembers, sections, isOverlay }: TaskRowProps) => {
     const [showDetail, setShowDetail] = useState(false);
     const { showConfirm, success, error: showError } = useAlertStore();
 
@@ -30,9 +31,9 @@ export const TaskRow = ({ task, projectId, slug, qc, projectMembers, sections }:
     } = useSortable({ id: task._id });
 
     const style = {
-        transform: CSS.Translate.toString(transform),
+        transform: CSS.Transform.toString(transform),
         transition,
-        opacity: isDragging ? 0.4 : 1,
+        opacity: isDragging && !isOverlay ? 0.3 : 1,
     };
 
     const deleteTaskMutation = useMutation({
@@ -50,12 +51,12 @@ export const TaskRow = ({ task, projectId, slug, qc, projectMembers, sections }:
     return (
         <>
             <div
-                ref={setNodeRef}
-                style={style}
-                {...attributes}
-                {...listeners}
-                onClick={() => setShowDetail(true)}
-                className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 relative group cursor-pointer active:cursor-grabbing"
+                ref={isOverlay ? undefined : setNodeRef}
+                style={isOverlay ? undefined : style}
+                {...(isOverlay ? {} : attributes)}
+                {...(isOverlay ? {} : listeners)}
+                onClick={() => !isOverlay && setShowDetail(true)}
+                className={`bg-white p-4 rounded-2xl border border-gray-100 shadow-sm transition-all duration-300 relative group cursor-pointer ${isOverlay ? 'shadow-xl cursor-grabbing' : 'hover:shadow-md active:cursor-grabbing'}`}
             >
                 <div className="flex items-center justify-between mb-3">
                     <div className="flex gap-1.5">
@@ -110,12 +111,11 @@ export const TaskRow = ({ task, projectId, slug, qc, projectMembers, sections }:
                     task={task}
                     projectId={projectId}
                     slug={slug}
-                    projectMembers={projectMembers}
                     sections={sections}
+                    projectMembers={projectMembers}
                     onClose={() => setShowDetail(false)}
                 />
             )}
         </>
     );
 };
-

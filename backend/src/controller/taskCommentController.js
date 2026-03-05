@@ -1,4 +1,6 @@
 import TaskComment from "../models/TaskCommentSchema.js";
+import Task from "../models/TaskSchema.js";
+import { saveActivityLog } from "../service/auditLogger.js";
 import { createNotification } from "../service/notification.js";
 
 export const createComment = async (req, res) => {
@@ -41,6 +43,19 @@ export const createComment = async (req, res) => {
       "userId",
       "name email",
     );
+
+    const task = await Task.findById(taskId);
+    if (task) {
+      saveActivityLog({
+        tenantId,
+        userId: req.user.userId,
+        actionType: "COMMENT",
+        entityId: task._id,
+        entityType: "Task",
+        projectId: task.projectId,
+        details: { message, mentions },
+      });
+    }
 
     res.status(201).json({
       message: "Comment created successfully",

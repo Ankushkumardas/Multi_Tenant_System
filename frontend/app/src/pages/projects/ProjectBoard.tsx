@@ -66,12 +66,21 @@ const ProjectBoard = () => {
     });
 
     const createTaskMutation = useMutation({
-        mutationFn: async () => api.post(`/${slug}/projects/${projectId}/tasks`, {
-            title: newTaskTitle,
-            sectionId: taskSectionId,
-            description: newTaskDescription,
-            priority: newTaskPriority,
-        }),
+        mutationFn: async () => {
+            const section = board.find((i: any) => i.section._id === taskSectionId);
+            let status = section?.section.name.toUpperCase().replace(/\s+/g, "_") || "TODO";
+            if (status === "BACKLOG") status = "BACKLOGS";
+            const validStatuses = ["TODO", "IN_PROGRESS", "DONE", "REVIEW", "BACKLOGS"];
+            if (!validStatuses.includes(status)) status = "TODO";
+
+            return api.post(`/${slug}/projects/${projectId}/tasks`, {
+                title: newTaskTitle,
+                sectionId: taskSectionId,
+                status,
+                description: newTaskDescription,
+                priority: newTaskPriority,
+            });
+        },
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: ["board", slug, projectId] });
             setNewTaskTitle("");
@@ -81,9 +90,54 @@ const ProjectBoard = () => {
     });
 
     const updateTaskSectionMutation = useMutation({
-        mutationFn: async ({ taskId, sectionId }: { taskId: string; sectionId: string }) =>
-            api.put(`/${slug}/projects/${projectId}/tasks/${taskId}`, { sectionId }),
-        onSuccess: () => qc.invalidateQueries({ queryKey: ["board", slug, projectId] }),
+        mutationFn: async ({ taskId, sectionId, status }: { taskId: string; sectionId: string; status?: string }) =>
+            api.put(`/${slug}/projects/${projectId}/tasks/${taskId}`, { sectionId, status }),
+        onMutate: async ({ taskId, sectionId, status }) => {
+            // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
+            await qc.cancelQueries({ queryKey: ["board", slug, projectId] });
+
+            // Snapshot the previous value
+            const previousBoard = qc.getQueryData(["board", slug, projectId]);
+
+            // Optimistically update to the new value
+            qc.setQueryData(["board", slug, projectId], (old: any) => {
+                if (!old) return old;
+
+                const newBoard = JSON.parse(JSON.stringify(old));
+                const boardArray = Array.isArray(newBoard) ? newBoard : newBoard.board;
+
+                let movedTask: any = null;
+                // Remove task from old section
+                for (const col of boardArray) {
+                    const taskIdx = col.tasks.findIndex((t: any) => t._id === taskId);
+                    if (taskIdx > -1) {
+                        movedTask = col.tasks.splice(taskIdx, 1)[0];
+                        break;
+                    }
+                }
+
+                // Add task to new section
+                if (movedTask) {
+                    const targetCol = boardArray.find((col: any) => col.section._id === sectionId);
+                    if (targetCol) {
+                        if (status) movedTask.status = status;
+                        movedTask.sectionId = sectionId;
+                        targetCol.tasks.push(movedTask);
+                    }
+                }
+
+                return newBoard;
+            });
+
+            // Return a context object with the snapshotted value
+            return { previousBoard };
+        },
+        onError: (_err, _newTodo, context) => {
+            qc.setQueryData(["board", slug, projectId], context?.previousBoard);
+        },
+        onSettled: () => {
+            qc.invalidateQueries({ queryKey: ["board", slug, projectId] });
+        },
     });
 
     // ── DnD Handlers ──
@@ -113,16 +167,19 @@ const ProjectBoard = () => {
         // If dropped over a column or another task
         // We need to find which column the 'overId' belongs to
         let overSectionId = "";
+        let overSectionName = "";
 
         // 1. Is overId a section ID?
-        const isOverSection = board.some(col => col.section._id === overId);
-        if (isOverSection) {
+        const sectionCol = board.find(col => col.section._id === overId);
+        if (sectionCol) {
             overSectionId = overId;
+            overSectionName = sectionCol.section.name;
         } else {
             // 2. Is overId a task ID? Find the section it belongs to
             for (const col of board) {
                 if (col.tasks.some((t: any) => t._id === overId)) {
                     overSectionId = col.section._id;
+                    overSectionName = col.section.name;
                     break;
                 }
             }
@@ -141,7 +198,17 @@ const ProjectBoard = () => {
 
         // If moved to a different section, update backend
         if (activeSectionId !== overSectionId) {
-            updateTaskSectionMutation.mutate({ taskId: activeId, sectionId: overSectionId });
+            // Determine status from section name
+            let status = overSectionName.toUpperCase().replace(/\s+/g, "_");
+            // Validate status against enum-like logic (optional but good)
+            const validStatuses = ["TODO", "IN_PROGRESS", "DONE", "REVIEW", "BACKLOGS"];
+            if (!validStatuses.includes(status)) {
+                // Default fallback or handle specific cases
+                if (status === "BACKLOG") status = "BACKLOGS";
+                else status = "TODO";
+            }
+
+            updateTaskSectionMutation.mutate({ taskId: activeId, sectionId: overSectionId, status });
         }
     };
 
@@ -230,7 +297,7 @@ const ProjectBoard = () => {
                         })
                     }}>
                         {activeTask ? (
-                            <div className="w-64 scale-105 rotate-2">
+                            <div className="w-64 scale-105 rotate-2 shadow-2xl rounded-2xl">
                                 <TaskRow
                                     task={activeTask}
                                     projectId={projectId!}
@@ -238,6 +305,7 @@ const ProjectBoard = () => {
                                     qc={qc}
                                     projectMembers={members}
                                     sections={board.map((i: any) => i.section)}
+                                    isOverlay={true}
                                 />
                             </div>
                         ) : null}

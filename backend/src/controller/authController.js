@@ -575,7 +575,8 @@ export const updateUserRole = async (req, res) => {
 
 export const updateProfileData = async (req, res) => {
   try {
-    const { name, email } = req.body;
+    const { name, email, phone, bio, profileImage, location, jobTitle } =
+      req.body;
     const { userId, tenantId } = req.user;
     const user = await User.findById(userId);
     if (!user) {
@@ -606,7 +607,22 @@ export const updateProfileData = async (req, res) => {
       });
     }
     user.name = name;
+    if (phone !== undefined) user.phone = phone;
+    if (bio !== undefined) user.bio = bio;
+    if (profileImage !== undefined) user.profileImage = profileImage;
+    if (location !== undefined) user.location = location;
+    if (jobTitle !== undefined) user.jobTitle = jobTitle;
     await user.save();
+
+    // Update redis cache
+    const tenant = await Tenant.findById(user.tenantId);
+    await redisClient.set(
+      `user:profile:${userId}`,
+      JSON.stringify({ user, tenant }),
+      "EX",
+      3600,
+    );
+
     return res
       .status(200)
       .json({ message: "Profile updated successfully", user });
@@ -797,6 +813,7 @@ export const getActiveSessions = async (req, res) => {
     const { userId } = req.user;
     const sessions = await redisClient.smembers(`sessions:user:${userId}`);
     let data = [];
+    const currentSessionId = generateSessionId(req);
     for (const session of sessions) {
       const [token, meta] = await Promise.all([
         redisClient.get(`refreshToken:user:${userId}:${session}`),
@@ -807,12 +824,20 @@ export const getActiveSessions = async (req, res) => {
         data.push({
           sessionId: session,
           active: true,
+          isCurrent: session === currentSessionId,
           meta: meta
             ? JSON.parse(meta)
             : { ip: "Unknown", userAgent: "Unknown", loginAt: Date.now() },
         });
       }
     }
+
+    // Sort by loginAt desc, but keep isCurrent at the top
+    data.sort((a, b) => {
+      if (a.isCurrent) return -1;
+      if (b.isCurrent) return 1;
+      return (b.meta?.loginAt || 0) - (a.meta?.loginAt || 0);
+    });
     return res.status(200).json({
       message: "Active sessions fetched successfully for this user",
       sessions: data,
@@ -912,25 +937,37 @@ export const resendInvite = async (req, res) => {
 export const revokeSession = async (req, res) => {
   try {
     const { sessionId } = req.params;
+    const { userId } = req.user;
 
-    if (!sessionId) {
-      return res.status(400).json({ message: "Session ID is required" });
-    }
-
-    // Assuming sessions are stored in Redis
-    const sessionKey = `session:${sessionId}`;
-    const sessionExists = await redisClient.exists(sessionKey);
-
-    if (!sessionExists) {
-      return res.status(404).json({ message: "Session not found" });
-    }
-
-    // Delete the session from Redis
-    await redisClient.del(sessionKey);
+    await redisClient.del(`refreshToken:user:${userId}:${sessionId}`);
+    await redisClient.del(`sessionMeta:user:${userId}:${sessionId}`);
+    await redisClient.srem(`sessions:user:${userId}`, sessionId);
 
     return res.status(200).json({ message: "Session revoked successfully" });
   } catch (error) {
     console.error("Error revoking session:", error);
     return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const revokeOthersSessions = async (req, res) => {
+  try {
+    const { userId } = req.user;
+    const currentSessionId = generateSessionId(req);
+    const sessions = await redisClient.smembers(`sessions:user:${userId}`);
+
+    for (const sessionId of sessions) {
+      if (sessionId !== currentSessionId) {
+        await redisClient.del(`refreshToken:user:${userId}:${sessionId}`);
+        await redisClient.del(`sessionMeta:user:${userId}:${sessionId}`);
+        await redisClient.srem(`sessions:user:${userId}`, sessionId);
+      }
+    }
+
+    return res
+      .status(200)
+      .json({ message: "Other sessions revoked successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };

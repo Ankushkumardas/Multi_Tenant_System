@@ -44,6 +44,22 @@ export const UserActivity = async (req, res) => {
   }
 };
 
+export const getTaskActivity = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const activity = await ActivityLog.find({
+      entityId: taskId,
+      entityType: "Task",
+      tenantId: req.user.tenantId,
+    })
+      .populate("userId", "name email")
+      .sort({ createdAt: -1 });
+    res.status(200).json({ activity });
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 export const getActivityStats = async (req, res) => {
   try {
     const stats = await ActivityLog.aggregate([
