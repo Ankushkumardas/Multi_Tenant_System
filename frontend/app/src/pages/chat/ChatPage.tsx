@@ -69,8 +69,15 @@ const ChatPage = () => {
 
     useEffect(() => {
         fetchRooms();
+        const isProduction = !window.location.hostname.includes("localhost");
         const API_URL = import.meta.env.VITE_API_URL || "/api";
-        const SOCKET_URL = API_URL.startsWith("http") ? new URL(API_URL).origin : window.location.origin;
+
+        // In production, always default to the current domain to avoid CORS issues
+        let SOCKET_URL = window.location.origin;
+        if (!isProduction && API_URL.startsWith("http")) {
+            SOCKET_URL = new URL(API_URL).origin;
+        }
+
         const socket = io(SOCKET_URL, {
             auth: { token: localStorage.getItem("token") },
             path: "/socket.io/",

@@ -10,14 +10,26 @@ let io;
 export const setupSocket = (server, app) => {
   io = new Server(server, {
     cors: {
-      origin: [
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://localhost:3000",
-        "http://localhost:5175",
-        "http://localhost:5176",
-        process.env.FRONTEND_URL,
-      ],
+      origin: (origin, callback) => {
+        const allowedOrigins = [
+          "http://localhost:5173",
+          "http://localhost:5174",
+          "http://localhost:3000",
+          "http://localhost:5175",
+          "http://localhost:5176",
+        ];
+        if (process.env.FRONTEND_URL) {
+          const envOrigins = process.env.FRONTEND_URL.split(/[|,]/).map((o) =>
+            o.trim(),
+          );
+          allowedOrigins.push(...envOrigins);
+        }
+        if (!origin || allowedOrigins.includes(origin)) {
+          callback(null, true);
+        } else {
+          callback(new Error("Not allowed by Socket CORS"));
+        }
+      },
       credentials: true,
     },
   });

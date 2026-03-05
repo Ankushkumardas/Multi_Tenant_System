@@ -3,9 +3,15 @@
 import { io } from 'socket.io-client';
 
 export const createSocket = (token: string) => {
-    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
-    const SOCKET_URL = API_URL.startsWith("http") ? new URL(API_URL).origin : window.location.origin;
+    const isProduction = !window.location.hostname.includes("localhost");
+    const API_URL = import.meta.env.VITE_API_URL || "/api";
+
+    let SOCKET_URL = window.location.origin;
+    if (!isProduction && API_URL.startsWith("http")) {
+        SOCKET_URL = new URL(API_URL).origin;
+    }
+
     return io(SOCKET_URL, {
         auth: { token }
     });
-}
+};
